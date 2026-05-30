@@ -1,0 +1,25 @@
+{
+  "name": "tp-desarrollo-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Agusesp1/TP-desarrollo-BACKEND.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Agusesp1/TP-desarrollo-BACKEND/issues"
+  },
+  "homepage": "https://github.com/Agusesp1/TP-desarrollo-BACKEND#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
