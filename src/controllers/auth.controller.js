@@ -1,4 +1,5 @@
 const usuarioModel = require('../models/usuario.model');
+const emailService = require('../services/email.service');
 
 // Controlador para el Registro de Usuario
 const registro = async (req, res) => {
@@ -39,6 +40,11 @@ const registro = async (req, res) => {
       fechaNac,
       email,
       password
+    });
+
+    // 5. Enviar correo de bienvenida (sin bloquear la respuesta si ocurre algún error)
+    emailService.enviarMailBienvenida({ nombre, email }).catch((err) => {
+      console.warn('⚠️ No se pudo despachar el correo de bienvenida:', err.message || err);
     });
 
     return res.status(201).json({

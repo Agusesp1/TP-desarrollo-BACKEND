@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
 const usuarioRoutes = require('./routes/usuario.routes');
+const emailRoutes = require('./routes/email.routes');
 const pool = require('./config/db');
 
 const app = express();
@@ -20,6 +21,8 @@ app.get('/', (req, res) => {
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/email', emailRoutes);
+
 
 // Probar conexión a la base de datos al iniciar el servidor
 pool.getConnection()
