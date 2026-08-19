@@ -1,21 +1,26 @@
-const usuarioModel = require('../models/usuario.model');
+const Usuario = require('../models/usuario.model');
 const emailService = require('../services/email.service');
 
-// Controlador para el Registro de Usuario
+// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para MySQL DATE
+const formatearFechaParaMySQL = (fechaStr) => {
+  if (!fechaStr) return null;
+  if (fechaStr.includes('/')) {
+    const partes = fechaStr.split('/');
+    if (partes.length === 3) {
+      const [dia, mes, anio] = partes;
+      return `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+    }
+  }
+  return fechaStr;
+};
+
+// Controlador para el Registro de Usuario con Sequelize
 const registro = async (req, res) => {
   const { nombre, apellido, dni, fechaNac, email, password } = req.body;
 
-  // 1. Validación de campos obligatorios
-  if (!nombre || !apellido || !dni || !fechaNac || !email || !password) {
-    return res.status(400).json({
-      exito: false,
-      mensaje: 'Todos los campos son obligatorios'
-    });
-  }
-
   try {
-    // 2. Verificar si el email ya existe
-    const usuarioExistenteEmail = await usuarioModel.buscarPorEmail(email);
+    // 1. Verificar si el email ya existe
+    const usuarioExistenteEmail = await Usuario.findOne({ where: { email } });
     if (usuarioExistenteEmail) {
       return res.status(409).json({
         exito: false,
@@ -23,8 +28,8 @@ const registro = async (req, res) => {
       });
     }
 
-    // 3. Verificar si el DNI ya existe
-    const usuarioExistenteDni = await usuarioModel.buscarPorDni(dni);
+    // 2. Verificar si el DNI ya existe
+    const usuarioExistenteDni = await Usuario.findOne({ where: { dni } });
     if (usuarioExistenteDni) {
       return res.status(409).json({
         exito: false,
@@ -32,25 +37,28 @@ const registro = async (req, res) => {
       });
     }
 
-    // 4. Crear el usuario
-    const nuevoUsuario = await usuarioModel.crearUsuario({
+    // 3. Crear el usuario en la base de datos usando Sequelize
+    const fechaFormateada = formatearFechaParaMySQL(fechaNac);
+    const nuevoUsuario = await Usuario.create({
       nombre,
       apellido,
       dni,
-      fechaNac,
+      fecha_nacimiento: fechaFormateada,
       email,
       password
     });
 
-    // 5. Enviar correo de bienvenida (sin bloquear la respuesta si ocurre algún error)
+    // 4. Enviar correo de bienvenida (asíncrono, sin bloquear la respuesta)
     emailService.enviarMailBienvenida({ nombre, email }).catch((err) => {
       console.warn('⚠️ No se pudo despachar el correo de bienvenida:', err.message || err);
     });
 
+    const { password: _, ...datosUsuario } = nuevoUsuario.toJSON();
+
     return res.status(201).json({
       exito: true,
       mensaje: 'Usuario registrado exitosamente',
-      usuario: nuevoUsuario
+      usuario: datosUsuario
     });
   } catch (error) {
     console.error('Error en el controlador de registro:', error);
@@ -62,25 +70,25 @@ const registro = async (req, res) => {
   }
 };
 
-// Controlador para el Inicio de Sesión (Login)
+// Controlador para el Inicio de Sesión (Login) con Sequelize
 const login = async (req, res) => {
   const { email, password } = req.body;
 
-  // 1. Validación de campos obligatorios
-  if (!email || !password) {
-    return res.status(400).json({
-      exito: false,
-      mensaje: 'Debes ingresar el correo electrónico y la contraseña'
-    });
-  }
-
   try {
-    // 2. Buscar usuario por email
-    const usuario = await usuarioModel.buscarPorEmail(email);
+    // 1. Buscar usuario por email con Sequelize
+    const usuario = await Usuario.findOne({ where: { email } });
     if (!usuario) {
       return res.status(401).json({
         exito: false,
         mensaje: 'Credenciales inválidas (correo electrónico no registrado)'
+      });
+    }
+
+    // 2. Verificar si la cuenta está activa (baja lógica)
+    if (!usuario.estado) {
+      return res.status(403).json({
+        exito: false,
+        mensaje: 'Esta cuenta ha sido dada de baja o se encuentra desactivada'
       });
     }
 
@@ -92,8 +100,8 @@ const login = async (req, res) => {
       });
     }
 
-    // 4. Excluir contraseña de la respuesta por seguridad
-    const { password: _, ...datosUsuario } = usuario;
+    // 4. Excluir contraseña de la respuesta
+    const { password: _, ...datosUsuario } = usuario.toJSON();
 
     return res.json({
       exito: true,
