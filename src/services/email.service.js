@@ -5,7 +5,7 @@ if (!apiKey) {
   console.warn('⚠️ RESEND_API_KEY no está configurada en las variables de entorno.');
 }
 
-const resend = new Resend(apiKey);
+const resend = apiKey ? new Resend(apiKey) : null;
 const DEFAULT_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
 /**
@@ -19,6 +19,10 @@ const DEFAULT_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
  */
 const enviarMail = async ({ to, subject, html, text, from = DEFAULT_FROM }) => {
   try {
+    if (!resend) {
+      console.warn('⚠️ No se envió correo: RESEND_API_KEY no está configurada.');
+      return { exito: false, error: 'RESEND_API_KEY no configurada' };
+    }
     const data = await resend.emails.send({
       from,
       to,

@@ -80,7 +80,7 @@ const login = async (req, res) => {
     if (!usuario) {
       return res.status(401).json({
         exito: false,
-        mensaje: 'Credenciales inválidas (correo electrónico no registrado)'
+        mensaje: 'Usuario o contraseña inválido'
       });
     }
 
@@ -96,7 +96,7 @@ const login = async (req, res) => {
     if (usuario.password !== password) {
       return res.status(401).json({
         exito: false,
-        mensaje: 'Credenciales inválidas (contraseña incorrecta)'
+        mensaje: 'Usuario o contraseña inválido'
       });
     }
 
