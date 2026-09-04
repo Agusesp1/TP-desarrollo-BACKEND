@@ -48,6 +48,10 @@ const Usuario = sequelize.define('Usuario', {
     type: DataTypes.ENUM('Inicial', 'Medium', 'Premium'),
     defaultValue: 'Inicial'
   },
+  rol: {
+    type: DataTypes.ENUM('admin', 'usuario', 'profesor'),
+    defaultValue: 'usuario'
+  },
   estado: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
