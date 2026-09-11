@@ -53,6 +53,62 @@ const obtenerEstadisticas = async (req, res) => {
   }
 };
 
+// Obtener listado de clientes/socios
+const obtenerUsuarios = async (req, res) => {
+  try {
+    const usuarios = await Usuario.findAll({
+      attributes: { exclude: ['password'] },
+      order: [['id', 'DESC']]
+    });
+
+    return res.json({
+      exito: true,
+      usuarios
+    });
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    return res.status(500).json({
+      exito: false,
+      mensaje: 'Error al obtener usuarios',
+      detalles: error.message
+    });
+  }
+};
+
+// Cambiar estado activo/inactivo de un usuario
+const toggleEstadoUsuario = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const usuario = await Usuario.findByPk(id);
+    if (!usuario) {
+      return res.status(404).json({
+        exito: false,
+        mensaje: 'Usuario no encontrado'
+      });
+    }
+
+    const nuevoEstado = !usuario.estado;
+    await usuario.update({ estado: nuevoEstado });
+
+    const { password: _, ...datosUsuario } = usuario.toJSON();
+
+    return res.json({
+      exito: true,
+      mensaje: `Usuario ${nuevoEstado ? 'activado' : 'pausado'} exitosamente`,
+      usuario: datosUsuario
+    });
+  } catch (error) {
+    console.error('Error al cambiar estado del usuario:', error);
+    return res.status(500).json({
+      exito: false,
+      mensaje: 'Error al cambiar estado del usuario',
+      detalles: error.message
+    });
+  }
+};
+
 module.exports = {
-  obtenerEstadisticas
+  obtenerEstadisticas,
+  obtenerUsuarios,
+  toggleEstadoUsuario
 };

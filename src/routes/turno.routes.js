@@ -1,12 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const turnoController = require('../controllers/turno.controller');
+const {
+  validarIdTurno,
+  validarCrearTurno,
+  validarActualizarTurno
+} = require('../middlewares/turno.middleware');
 
 router.get('/', turnoController.obtenerTurnos);
-router.get('/:id', turnoController.obtenerTurnoPorId);
-router.post('/', turnoController.crearTurno);
-router.put('/:id', turnoController.actualizarTurno);
-router.patch('/:id/toggle-estado', turnoController.toggleEstadoTurno);
-router.delete('/:id', turnoController.eliminarTurno);
+router.get('/:id', validarIdTurno, turnoController.obtenerTurnoPorId);
+router.post('/', validarCrearTurno, turnoController.crearTurno);
+router.put('/:id', validarIdTurno, validarActualizarTurno, turnoController.actualizarTurno);
+router.patch('/:id/toggle-estado', validarIdTurno, turnoController.toggleEstadoTurno);
+router.delete('/:id', validarIdTurno, turnoController.eliminarTurno);
 
 module.exports = router;

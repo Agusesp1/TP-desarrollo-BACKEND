@@ -5,7 +5,7 @@ const enviarCorreo = async (req, res) => {
   const { to, subject, html } = req.body;
 
   // Destinatario por defecto si no se especifica
-  const destinatario = to || 'administraciongymfit@gmail.com';
+  const destinatario = to || process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
   const asunto = subject || 'Hello World desde GymFit API';
   const contenidoHtml = html || '<p>Congrats on sending your <strong>first email</strong> with Resend!</p>';
 

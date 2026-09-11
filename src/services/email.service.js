@@ -47,6 +47,7 @@ const enviarMail = async ({ to, subject, html, text, from = DEFAULT_FROM }) => {
  */
 const enviarMailBienvenida = async ({ nombre, email }) => {
   const subject = '¡Bienvenido/a a GymFit!';
+  const adminEmail = process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
       <h2 style="color: #4F46E5; text-align: center;">¡Hola, ${nombre}! 👋</h2>
@@ -59,7 +60,7 @@ const enviarMailBienvenida = async ({ nombre, email }) => {
         </p>
       </div>
       <p style="font-size: 14px; color: #777777; text-align: center; margin-top: 30px;">
-        Si tienes alguna duda, responde directamente a este correo o contáctanos a <a href="mailto:administraciongymfit@gmail.com">administraciongymfit@gmail.com</a>.
+        Si tienes alguna duda, responde directamente a este correo o contáctanos a <a href="mailto:${adminEmail}">${adminEmail}</a>.
       </p>
     </div>
   `;
@@ -80,6 +81,7 @@ const enviarMailBienvenida = async ({ nombre, email }) => {
  * @param {string} datos.mensaje
  */
 const enviarMailContacto = async ({ nombre, email, asunto, mensaje }) => {
+  const adminEmail = process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
   const subjectHeader = asunto ? `[Consulta Web] ${asunto}` : '[Consulta Web] Nuevo mensaje de contacto';
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -100,7 +102,7 @@ const enviarMailContacto = async ({ nombre, email, asunto, mensaje }) => {
   `;
 
   return await enviarMail({
-    to: 'administraciongymfit@gmail.com',
+    to: adminEmail,
     subject: subjectHeader,
     html
   });

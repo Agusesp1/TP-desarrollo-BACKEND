@@ -12,8 +12,8 @@ const inicializarDatos = async () => {
     console.log('📦 Base de datos sincronizada correctamente.');
 
     // 1. Crear o asegurar usuario Administrador
-    const adminEmail = 'administraciongymfit@gmail.com';
-    const adminPassword = 'adminfit';
+    const adminEmail = process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'adminfit';
 
     const adminExistente = await Usuario.findOne({ where: { email: adminEmail } });
 
@@ -30,7 +30,7 @@ const inicializarDatos = async () => {
         rol: 'admin',
         estado: true
       });
-      console.log('✅ Usuario Administrador pre-cargado con éxito (administraciongymfit@gmail.com)');
+      console.log(`✅ Usuario Administrador pre-cargado con éxito (${adminEmail})`);
     } else {
       if (adminExistente.rol !== 'admin' || adminExistente.password !== adminPassword) {
         await adminExistente.update({
