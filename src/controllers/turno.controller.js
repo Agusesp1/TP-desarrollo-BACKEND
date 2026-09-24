@@ -2,11 +2,12 @@ const Turno = require('../models/turno.model');
 const Actividad = require('../models/actividad.model');
 const Profesor = require('../models/profesor.model');
 const Sede = require('../models/sede.model');
+const Reserva = require('../models/reserva.model');
 
-// Obtener todos los turnos
+// Obtener todos los turnos con información real de cupos y reservas
 const obtenerTurnos = async (req, res) => {
   try {
-    const { actividad_id, sede_id, dia_semana, soloActivos } = req.query;
+    const { actividad_id, sede_id, dia_semana, soloActivos, fecha, usuario_id } = req.query;
     const whereClause = {};
 
     if (actividad_id) whereClause.actividad_id = actividad_id;
@@ -14,13 +15,17 @@ const obtenerTurnos = async (req, res) => {
     if (dia_semana) whereClause.dia_semana = dia_semana;
     if (soloActivos === 'true') whereClause.estado = true;
 
+    // Fecha a consultar (por defecto la fecha local del servidor)
+    const d = new Date();
+    const fechaConsulta = fecha || `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
     const turnos = await Turno.findAll({
       where: whereClause,
       include: [
         {
           model: Actividad,
           as: 'actividad',
-          attributes: ['id', 'nombre', 'duracion', 'cupo']
+          attributes: ['id', 'nombre', 'duracion', 'cupo', 'descripcion']
         },
         {
           model: Profesor,
@@ -31,14 +36,42 @@ const obtenerTurnos = async (req, res) => {
           model: Sede,
           as: 'sede',
           attributes: ['id', 'nombre', 'ciudad', 'direccion']
+        },
+        {
+          model: Reserva,
+          as: 'reservas',
+          where: { fecha: fechaConsulta, estado: 'confirmada' },
+          required: false,
+          attributes: ['id', 'usuario_id', 'fecha', 'estado']
         }
       ],
       order: [['dia_semana', 'ASC'], ['horarioInicio', 'ASC']]
     });
 
+    const turnosFormateados = turnos.map(t => {
+      const turnoJson = t.toJSON();
+      const reservas = turnoJson.reservas || [];
+      const cupos_ocupados = reservas.length;
+      const cupo_maximo = turnoJson.actividad?.cupo || 20;
+      const cupos_disponibles = Math.max(0, cupo_maximo - cupos_ocupados);
+      const miReserva = usuario_id ? reservas.find(r => r.usuario_id.toString() === usuario_id.toString()) : null;
+
+      return {
+        ...turnoJson,
+        fecha_consultada: fechaConsulta,
+        cupos_ocupados,
+        cupo_maximo,
+        cupos_disponibles,
+        esta_lleno: cupos_disponibles <= 0,
+        reservado_por_mi: !!miReserva,
+        mi_reserva_id: miReserva ? miReserva.id : null
+      };
+    });
+
     return res.json({
       exito: true,
-      turnos
+      fecha: fechaConsulta,
+      turnos: turnosFormateados
     });
   } catch (error) {
     console.error('Error al obtener turnos:', error);

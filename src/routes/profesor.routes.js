@@ -9,6 +9,7 @@ const {
 
 // Rutas de profesores
 router.get('/', profesorController.obtenerProfesores);
+router.get('/agenda/:email', profesorController.obtenerAgendaProfesor);
 router.get('/:id', validarIdProfesor, profesorController.obtenerProfesorPorId);
 router.post('/', validarCrearProfesor, profesorController.crearProfesor);
 router.put('/:id', validarIdProfesor, validarActualizarProfesor, profesorController.actualizarProfesor);

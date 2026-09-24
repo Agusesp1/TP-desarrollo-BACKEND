@@ -78,6 +78,13 @@ const crearSede = async (req, res) => {
     });
   }
 
+  if (telefono && telefono.toString().trim() !== '' && !/^\d+$/.test(telefono.toString().trim())) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'El número de teléfono de la sede solo debe contener números'
+    });
+  }
+
   try {
     const nuevaSede = await Sede.create({
       nombre: nombre.trim(),
@@ -116,6 +123,13 @@ const actualizarSede = async (req, res) => {
       return res.status(404).json({
         exito: false,
         mensaje: 'Sede no encontrada'
+      });
+    }
+
+    if (telefono !== undefined && telefono !== null && telefono.toString().trim() !== '' && !/^\d+$/.test(telefono.toString().trim())) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El número de teléfono de la sede solo debe contener números'
       });
     }
 

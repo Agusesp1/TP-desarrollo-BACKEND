@@ -1,5 +1,8 @@
 const Profesor = require('../models/profesor.model');
 const Sede = require('../models/sede.model');
+const Usuario = require('../models/usuario.model');
+const Turno = require('../models/turno.model');
+const Actividad = require('../models/actividad.model');
 
 // Obtener todos los profesores
 const obtenerProfesores = async (req, res) => {
@@ -114,12 +117,37 @@ const crearProfesor = async (req, res) => {
       apellido: apellido.trim(),
       dni: dni.toString().trim(),
       email: email.trim().toLowerCase(),
-      telefono: telefono ? telefono.trim() : null,
+      telefono: telefono ? telefono.toString().trim() : null,
       especialidad: especialidad ? especialidad.trim() : 'Musculación',
       turno: turno || 'Mañana',
       sede_id: sede_id ? parseInt(sede_id, 10) : null,
       estado: true
     });
+
+    // 4. Crear o sincronizar su cuenta de Usuario para que pueda ingresar
+    const passwordUsuario = req.body.password || dni.toString().trim();
+    const usuarioExistente = await Usuario.findOne({ where: { email: email.trim().toLowerCase() } });
+    if (!usuarioExistente) {
+      await Usuario.create({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        dni: dni.toString().trim(),
+        fecha_nacimiento: req.body.fecha_nacimiento || '1990-01-01',
+        email: email.trim().toLowerCase(),
+        password: passwordUsuario,
+        rol: 'profesor',
+        bio: `Profesor oficial de FitApp. Especialidad: ${especialidad || 'Musculación'}. Turno: ${turno || 'Mañana'}.`,
+        estado: true
+      });
+    } else {
+      await usuarioExistente.update({
+        rol: 'profesor',
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        dni: dni.toString().trim(),
+        estado: true
+      });
+    }
 
     // Cargar con relación de Sede si existe
     const profesorConSede = await Profesor.findByPk(nuevoProfesor.id, {
@@ -128,7 +156,7 @@ const crearProfesor = async (req, res) => {
 
     return res.status(201).json({
       exito: true,
-      mensaje: 'Profesor cargado exitosamente',
+      mensaje: 'Profesor cargado y cuenta de usuario habilitada exitosamente',
       profesor: profesorConSede || nuevoProfesor
     });
   } catch (error) {
@@ -177,17 +205,31 @@ const actualizarProfesor = async (req, res) => {
       }
     }
 
+    const emailAnterior = profesor.email;
+
     await profesor.update({
       nombre: nombre !== undefined ? nombre.trim() : profesor.nombre,
       apellido: apellido !== undefined ? apellido.trim() : profesor.apellido,
       dni: dni !== undefined ? dni.toString().trim() : profesor.dni,
       email: email !== undefined ? email.trim().toLowerCase() : profesor.email,
-      telefono: telefono !== undefined ? telefono : profesor.telefono,
+      telefono: telefono !== undefined ? (telefono ? telefono.toString().trim() : null) : profesor.telefono,
       especialidad: especialidad !== undefined ? especialidad.trim() : profesor.especialidad,
       turno: turno !== undefined ? turno : profesor.turno,
       sede_id: sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : profesor.sede_id,
       estado: estado !== undefined ? estado : profesor.estado
     });
+
+    // Sincronizar cuenta de usuario si existe
+    const usuarioAsociado = await Usuario.findOne({ where: { email: emailAnterior } });
+    if (usuarioAsociado) {
+      await usuarioAsociado.update({
+        nombre: nombre !== undefined ? nombre.trim() : usuarioAsociado.nombre,
+        apellido: apellido !== undefined ? apellido.trim() : usuarioAsociado.apellido,
+        email: email !== undefined ? email.trim().toLowerCase() : usuarioAsociado.email,
+        dni: dni !== undefined ? dni.toString().trim() : usuarioAsociado.dni,
+        estado: estado !== undefined ? estado : usuarioAsociado.estado
+      });
+    }
 
     const profesorActualizado = await Profesor.findByPk(id, {
       include: [{ model: Sede, as: 'sede' }]
@@ -223,6 +265,12 @@ const toggleEstadoProfesor = async (req, res) => {
     const nuevoEstado = !profesor.estado;
     await profesor.update({ estado: nuevoEstado });
 
+    // Sincronizar estado en cuenta de usuario
+    const usuarioAsociado = await Usuario.findOne({ where: { email: profesor.email } });
+    if (usuarioAsociado) {
+      await usuarioAsociado.update({ estado: nuevoEstado });
+    }
+
     return res.json({
       exito: true,
       mensaje: `Profesor ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
@@ -250,11 +298,18 @@ const eliminarProfesor = async (req, res) => {
       });
     }
 
+    const emailProfesor = profesor.email;
     await profesor.destroy();
+
+    // Eliminar también su cuenta de usuario para revocar acceso
+    const usuarioAsociado = await Usuario.findOne({ where: { email: emailProfesor } });
+    if (usuarioAsociado) {
+      await usuarioAsociado.destroy();
+    }
 
     return res.json({
       exito: true,
-      mensaje: 'Profesor eliminado exitosamente'
+      mensaje: 'Profesor y cuenta de usuario eliminados exitosamente'
     });
   } catch (error) {
     console.error('Error al eliminar profesor:', error);
@@ -266,11 +321,85 @@ const eliminarProfesor = async (req, res) => {
   }
 };
 
+// Obtener agenda, sedes, actividades y horarios de un profesor (por su email)
+const obtenerAgendaProfesor = async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    const emailNormalizado = email ? email.trim().toLowerCase() : '';
+    const profesor = await Profesor.findOne({
+      where: { email: emailNormalizado },
+      include: [{ model: Sede, as: 'sede' }]
+    });
+
+    if (!profesor) {
+      return res.status(404).json({
+        exito: false,
+        mensaje: 'Perfil de profesor no encontrado para este usuario'
+      });
+    }
+
+    // Obtener todos los turnos asignados al profesor
+    const turnos = await Turno.findAll({
+      where: { profesor_id: profesor.id, estado: true },
+      include: [
+        { model: Actividad, as: 'actividad' },
+        { model: Sede, as: 'sede' }
+      ],
+      order: [['dia_semana', 'ASC'], ['horarioInicio', 'ASC']]
+    });
+
+    // Mapear sedes únicas donde enseña
+    const sedesMap = new Map();
+    if (profesor.sede) {
+      sedesMap.set(profesor.sede.id, profesor.sede);
+    }
+    turnos.forEach((t) => {
+      if (t.sede) sedesMap.set(t.sede.id, t.sede);
+    });
+    const sedes = Array.from(sedesMap.values());
+
+    // Mapear actividades únicas que tiene a cargo (directamente asignadas o mediante turnos)
+    const actividadesMap = new Map();
+
+    // Actividades asignadas directamente al profesor
+    const actividadesDirectas = await Actividad.findAll({
+      where: { profesor_id: profesor.id, estado: true },
+      include: [{ model: Sede, as: 'sede' }]
+    });
+    actividadesDirectas.forEach((act) => {
+      actividadesMap.set(act.id, act);
+      if (act.sede) sedesMap.set(act.sede.id, act.sede);
+    });
+
+    turnos.forEach((t) => {
+      if (t.actividad) actividadesMap.set(t.actividad.id, t.actividad);
+    });
+    const actividades = Array.from(actividadesMap.values());
+
+    return res.json({
+      exito: true,
+      profesor,
+      turnos,
+      sedes,
+      actividades
+    });
+  } catch (error) {
+    console.error('Error al obtener agenda del profesor:', error);
+    return res.status(500).json({
+      exito: false,
+      mensaje: 'Error interno al obtener la agenda del profesor',
+      detalles: error.message
+    });
+  }
+};
+
 module.exports = {
   obtenerProfesores,
   obtenerProfesorPorId,
   crearProfesor,
   actualizarProfesor,
   toggleEstadoProfesor,
-  eliminarProfesor
+  eliminarProfesor,
+  obtenerAgendaProfesor
 };

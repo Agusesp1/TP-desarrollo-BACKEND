@@ -48,6 +48,24 @@ const validarCrearProfesor = (req, res, next) => {
     });
   }
 
+  if (!/^\d+$/.test(dniStr)) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'El DNI solo debe contener dígitos numéricos'
+    });
+  }
+
+  // Validar teléfono (si fue provisto, solo números)
+  if (telefono && telefono.toString().trim() !== '') {
+    const telStr = telefono.toString().trim();
+    if (!/^\d+$/.test(telStr)) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El número de teléfono solo debe contener números'
+      });
+    }
+  }
+
   // 4. Validar correo electrónico
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
@@ -108,6 +126,22 @@ const validarActualizarProfesor = (req, res, next) => {
       return res.status(400).json({
         exito: false,
         mensaje: 'El DNI debe tener entre 6 y 20 caracteres'
+      });
+    }
+    if (!/^\d+$/.test(dniStr)) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El DNI solo debe contener dígitos numéricos'
+      });
+    }
+  }
+
+  if (req.body.telefono !== undefined && req.body.telefono !== null && req.body.telefono.toString().trim() !== '') {
+    const telStr = req.body.telefono.toString().trim();
+    if (!/^\d+$/.test(telStr)) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El número de teléfono solo debe contener números'
       });
     }
   }

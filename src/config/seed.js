@@ -3,6 +3,7 @@ const Sede = require('../models/sede.model');
 const Profesor = require('../models/profesor.model');
 const Actividad = require('../models/actividad.model');
 const Turno = require('../models/turno.model');
+const Reserva = require('../models/reserva.model');
 const sequelize = require('./db');
 
 const inicializarDatos = async () => {
@@ -134,6 +135,26 @@ const inicializarDatos = async () => {
       console.log('✅ Profesores iniciales pre-cargados con éxito.');
     }
 
+    // Asegurar que todos los profesores tengan su cuenta de Usuario con rol 'profesor' para poder ingresar
+    for (const prof of profesores) {
+      const userExistente = await Usuario.findOne({ where: { email: prof.email } });
+      if (!userExistente) {
+        await Usuario.create({
+          nombre: prof.nombre,
+          apellido: prof.apellido,
+          dni: prof.dni,
+          fecha_nacimiento: '1992-05-15',
+          email: prof.email,
+          password: prof.dni, // Contraseña por defecto es su DNI
+          rol: 'profesor',
+          bio: `Profesor oficial de ${prof.especialidad}.`,
+          estado: true
+        });
+      } else if (userExistente.rol !== 'profesor') {
+        await userExistente.update({ rol: 'profesor' });
+      }
+    }
+
     // 4. Pre-cargar Actividades (incluyendo Musculación)
     let actMusculacion = await Actividad.findOne({
       where: { nombre: 'Musculación & Sala de Pesas' }
@@ -145,9 +166,12 @@ const inicializarDatos = async () => {
         duracion: 60,
         cupo: 40,
         descripcion: 'Entrenamiento libre y guiado de fuerza, hipertrofia y acondicionamiento físico con pesas y máquinas.',
+        sede_id: sedes[0] ? sedes[0].id : null,
         estado: true
       });
       console.log('✅ Actividad Musculación & Sala de Pesas creada con éxito.');
+    } else if (!actMusculacion.sede_id && sedes[0]) {
+      await actMusculacion.update({ sede_id: sedes[0].id });
     }
 
     const cantidadActividades = await Actividad.count();
@@ -158,6 +182,7 @@ const inicializarDatos = async () => {
           duracion: 50,
           cupo: 12,
           descripcion: 'Entrenamiento de fuerza, control postural y flexibilidad en camillas.',
+          sede_id: sedes[0] ? sedes[0].id : null,
           estado: true
         },
         {
@@ -165,6 +190,7 @@ const inicializarDatos = async () => {
           duracion: 60,
           cupo: 30,
           descripcion: 'Clase dinámica de baile y cardio al ritmo de la mejor música latina.',
+          sede_id: sedes[1] ? sedes[1].id : null,
           estado: true
         },
         {
@@ -172,6 +198,7 @@ const inicializarDatos = async () => {
           duracion: 45,
           cupo: 20,
           descripcion: 'Ciclismo indoor de alta intensidad con intervalos y pendientes simuladas.',
+          sede_id: sedes[2] ? sedes[2].id : (sedes[0] ? sedes[0].id : null),
           estado: true
         },
         {
@@ -179,6 +206,7 @@ const inicializarDatos = async () => {
           duracion: 60,
           cupo: 25,
           descripcion: 'Circuitos de fuerza metabólica, potencia y resistencia muscular.',
+          sede_id: sedes[1] ? sedes[1].id : null,
           estado: true
         },
         {
@@ -186,6 +214,7 @@ const inicializarDatos = async () => {
           duracion: 60,
           cupo: 18,
           descripcion: 'Secuencias dinámicas de respiración y posturas para calmar la mente y fortalecer el cuerpo.',
+          sede_id: sedes[0] ? sedes[0].id : null,
           estado: true
         }
       ]);
@@ -194,72 +223,91 @@ const inicializarDatos = async () => {
 
     const actividades = await Actividad.findAll();
 
+    // Asignar profesores a cargo de las actividades si aún no tienen
+    for (const act of actividades) {
+      if (!act.profesor_id) {
+        if (act.nombre.includes('Musculación')) {
+          const p = profesores.find(pr => pr.especialidad.includes('Musculación')) || profesores[0];
+          if (p) await act.update({ profesor_id: p.id });
+        } else if (act.nombre.includes('Pilates') || act.nombre.includes('Yoga')) {
+          const p = profesores.find(pr => pr.nombre === 'Camila') || profesores[0];
+          if (p) await act.update({ profesor_id: p.id });
+        } else if (act.nombre.includes('Zumba') || act.nombre.includes('Funcional')) {
+          const p = profesores.find(pr => pr.nombre === 'Luciana') || profesores[1];
+          if (p) await act.update({ profesor_id: p.id });
+        } else if (act.nombre.includes('Spinning')) {
+          const p = profesores.find(pr => pr.nombre === 'Matías') || profesores[2];
+          if (p) await act.update({ profesor_id: p.id });
+        }
+      }
+    }
+
     // 5. Pre-cargar Turnos organizados por combinación de días (Lun a Sáb) y rangos de 2hs
-    // Limpiamos turnos previos para aplicar la nueva estructura limpia
-    await Turno.destroy({ where: {} });
+    const cantidadTurnos = await Turno.count();
+    if (cantidadTurnos === 0) {
+      const profRodrigo = profesores.find(p => p.especialidad.includes('Musculación')) || profesores[0];
+      const profCamila = profesores.find(p => p.nombre === 'Camila') || profesores[0];
+      const profLuciana = profesores.find(p => p.nombre === 'Luciana') || profesores[1];
+      const profMatias = profesores.find(p => p.nombre === 'Matías') || profesores[2];
 
-    const profRodrigo = profesores.find(p => p.especialidad.includes('Musculación')) || profesores[0];
-    const profCamila = profesores.find(p => p.nombre === 'Camila') || profesores[0];
-    const profLuciana = profesores.find(p => p.nombre === 'Luciana') || profesores[1];
-    const profMatias = profesores.find(p => p.nombre === 'Matías') || profesores[2];
+      const sede1 = sedes[0] ? sedes[0].id : null;
+      const sede2 = sedes[1] ? sedes[1].id : null;
+      const sede3 = sedes[2] ? sedes[2].id : null;
 
-    const sede1 = sedes[0] ? sedes[0].id : null;
-    const sede2 = sedes[1] ? sedes[1].id : null;
-    const sede3 = sedes[2] ? sedes[2].id : null;
+      const turnosIniciales = [
+        // Musculación & Sala de Pesas (Lunes a Sábado con bloques de 2 horas)
+        { actividad_id: actMusculacion.id, horarioInicio: '07:00', horaFin: '09:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '09:00', horaFin: '11:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '11:00', horaFin: '13:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '14:00', horaFin: '16:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '16:00', horaFin: '18:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '18:00', horaFin: '20:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '20:00', horaFin: '22:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { actividad_id: actMusculacion.id, horarioInicio: '21:00', horaFin: '23:00', dia_semana: 'Lunes a Viernes', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+      ];
 
-    const turnosIniciales = [
-      // Musculación & Sala de Pesas (Lunes a Sábado con bloques de 2 horas)
-      { actividad_id: actMusculacion.id, horarioInicio: '07:00', horaFin: '09:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '09:00', horaFin: '11:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '11:00', horaFin: '13:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '14:00', horaFin: '16:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '16:00', horaFin: '18:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '18:00', horaFin: '20:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '20:00', horaFin: '22:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-      { actividad_id: actMusculacion.id, horarioInicio: '21:00', horaFin: '23:00', dia_semana: 'Lunes a Viernes', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-    ];
+      // Turnos de otras actividades con rangos de 2hs y combinación de días
+      const actPilates = actividades.find(a => a.nombre.includes('Pilates'));
+      const actZumba = actividades.find(a => a.nombre.includes('Zumba'));
+      const actSpinning = actividades.find(a => a.nombre.includes('Spinning'));
+      const actFuncional = actividades.find(a => a.nombre.includes('Funcional'));
+      const actYoga = actividades.find(a => a.nombre.includes('Yoga'));
 
-    // Turnos de otras actividades con rangos de 2hs y combinación de días
-    const actPilates = actividades.find(a => a.nombre.includes('Pilates'));
-    const actZumba = actividades.find(a => a.nombre.includes('Zumba'));
-    const actSpinning = actividades.find(a => a.nombre.includes('Spinning'));
-    const actFuncional = actividades.find(a => a.nombre.includes('Funcional'));
-    const actYoga = actividades.find(a => a.nombre.includes('Yoga'));
+      if (actPilates) {
+        turnosIniciales.push(
+          { actividad_id: actPilates.id, horarioInicio: '08:00', horaFin: '10:00', dia_semana: 'Lunes, Miércoles y Viernes', profesor_id: profCamila?.id, sede_id: sede1, estado: true },
+          { actividad_id: actPilates.id, horarioInicio: '16:00', horaFin: '18:00', dia_semana: 'Martes y Jueves', profesor_id: profCamila?.id, sede_id: sede1, estado: true }
+        );
+      }
 
-    if (actPilates) {
-      turnosIniciales.push(
-        { actividad_id: actPilates.id, horarioInicio: '08:00', horaFin: '10:00', dia_semana: 'Lunes, Miércoles y Viernes', profesor_id: profCamila?.id, sede_id: sede1, estado: true },
-        { actividad_id: actPilates.id, horarioInicio: '16:00', horaFin: '18:00', dia_semana: 'Martes y Jueves', profesor_id: profCamila?.id, sede_id: sede1, estado: true }
-      );
+      if (actZumba) {
+        turnosIniciales.push(
+          { actividad_id: actZumba.id, horarioInicio: '18:00', horaFin: '20:00', dia_semana: 'Martes y Jueves', profesor_id: profLuciana?.id, sede_id: sede2, estado: true },
+          { actividad_id: actZumba.id, horarioInicio: '10:00', horaFin: '12:00', dia_semana: 'Sábados', profesor_id: profLuciana?.id, sede_id: sede2, estado: true }
+        );
+      }
+
+      if (actSpinning) {
+        turnosIniciales.push(
+          { actividad_id: actSpinning.id, horarioInicio: '19:00', horaFin: '21:00', dia_semana: 'Lunes, Miércoles y Viernes', profesor_id: profMatias?.id, sede_id: sede3 || sede1, estado: true }
+        );
+      }
+
+      if (actFuncional) {
+        turnosIniciales.push(
+          { actividad_id: actFuncional.id, horarioInicio: '08:00', horaFin: '10:00', dia_semana: 'Martes y Jueves', profesor_id: profLuciana?.id, sede_id: sede2, estado: true }
+        );
+      }
+
+      if (actYoga) {
+        turnosIniciales.push(
+          { actividad_id: actYoga.id, horarioInicio: '09:00', horaFin: '11:00', dia_semana: 'Sábados', profesor_id: profCamila?.id, sede_id: sede1, estado: true }
+        );
+      }
+
+      await Turno.bulkCreate(turnosIniciales);
+      console.log(`✅ ${turnosIniciales.length} turnos configurados con combinaciones de días (Lun a Sáb) y rangos de 2hs creados con éxito.`);
     }
-
-    if (actZumba) {
-      turnosIniciales.push(
-        { actividad_id: actZumba.id, horarioInicio: '18:00', horaFin: '20:00', dia_semana: 'Martes y Jueves', profesor_id: profLuciana?.id, sede_id: sede2, estado: true },
-        { actividad_id: actZumba.id, horarioInicio: '10:00', horaFin: '12:00', dia_semana: 'Sábados', profesor_id: profLuciana?.id, sede_id: sede2, estado: true }
-      );
-    }
-
-    if (actSpinning) {
-      turnosIniciales.push(
-        { actividad_id: actSpinning.id, horarioInicio: '19:00', horaFin: '21:00', dia_semana: 'Lunes, Miércoles y Viernes', profesor_id: profMatias?.id, sede_id: sede3 || sede1, estado: true }
-      );
-    }
-
-    if (actFuncional) {
-      turnosIniciales.push(
-        { actividad_id: actFuncional.id, horarioInicio: '08:00', horaFin: '10:00', dia_semana: 'Martes y Jueves', profesor_id: profLuciana?.id, sede_id: sede2, estado: true }
-      );
-    }
-
-    if (actYoga) {
-      turnosIniciales.push(
-        { actividad_id: actYoga.id, horarioInicio: '09:00', horaFin: '11:00', dia_semana: 'Sábados', profesor_id: profCamila?.id, sede_id: sede1, estado: true }
-      );
-    }
-
-    await Turno.bulkCreate(turnosIniciales);
-    console.log(`✅ ${turnosIniciales.length} turnos configurados con combinaciones de días (Lun a Sáb) y rangos de 2hs creados con éxito.`);
 
   } catch (error) {
     console.warn('⚠️ Error durante la inicialización de datos de seed:', error.message);

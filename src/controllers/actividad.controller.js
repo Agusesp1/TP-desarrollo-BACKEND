@@ -6,12 +6,24 @@ const Sede = require('../models/sede.model');
 // Obtener todas las actividades
 const obtenerActividades = async (req, res) => {
   try {
-    const { soloActivas } = req.query;
-    const whereClause = soloActivas === 'true' ? { estado: true } : {};
+    const { soloActivas, sede_id } = req.query;
+    const whereClause = {};
+    if (soloActivas === 'true') whereClause.estado = true;
+    if (sede_id) whereClause.sede_id = sede_id;
 
     const actividades = await Actividad.findAll({
       where: whereClause,
       include: [
+        {
+          model: Sede,
+          as: 'sede',
+          attributes: ['id', 'nombre', 'ciudad']
+        },
+        {
+          model: Profesor,
+          as: 'profesor',
+          attributes: ['id', 'nombre', 'apellido', 'especialidad', 'email']
+        },
         {
           model: Turno,
           as: 'turnos',
@@ -44,6 +56,14 @@ const obtenerActividadPorId = async (req, res) => {
   try {
     const actividad = await Actividad.findByPk(id, {
       include: [
+        {
+          model: Sede,
+          as: 'sede'
+        },
+        {
+          model: Profesor,
+          as: 'profesor'
+        },
         {
           model: Turno,
           as: 'turnos',
@@ -78,7 +98,7 @@ const obtenerActividadPorId = async (req, res) => {
 
 // Crear nueva actividad
 const crearActividad = async (req, res) => {
-  const { nombre, duracion, cupo, descripcion } = req.body;
+  const { nombre, duracion, cupo, descripcion, sede_id, profesor_id } = req.body;
 
   if (!nombre || !duracion || !cupo) {
     return res.status(400).json({
@@ -93,13 +113,34 @@ const crearActividad = async (req, res) => {
       duracion: parseInt(duracion, 10),
       cupo: parseInt(cupo, 10),
       descripcion: descripcion ? descripcion.trim() : null,
+      sede_id: sede_id ? parseInt(sede_id, 10) : null,
+      profesor_id: profesor_id ? parseInt(profesor_id, 10) : null,
       estado: true
+    });
+
+    const actividadCompleta = await Actividad.findByPk(nuevaActividad.id, {
+      include: [
+        {
+          model: Sede,
+          as: 'sede',
+          attributes: ['id', 'nombre', 'ciudad']
+        },
+        {
+          model: Profesor,
+          as: 'profesor',
+          attributes: ['id', 'nombre', 'apellido', 'especialidad', 'email']
+        },
+        {
+          model: Turno,
+          as: 'turnos'
+        }
+      ]
     });
 
     return res.status(201).json({
       exito: true,
       mensaje: 'Actividad creada exitosamente',
-      actividad: nuevaActividad
+      actividad: actividadCompleta
     });
   } catch (error) {
     console.error('Error al crear actividad:', error);
@@ -114,7 +155,7 @@ const crearActividad = async (req, res) => {
 // Actualizar actividad
 const actualizarActividad = async (req, res) => {
   const { id } = req.params;
-  const { nombre, duracion, cupo, descripcion, estado } = req.body;
+  const { nombre, duracion, cupo, descripcion, estado, sede_id, profesor_id } = req.body;
 
   try {
     const actividad = await Actividad.findByPk(id);
@@ -130,13 +171,34 @@ const actualizarActividad = async (req, res) => {
       duracion: duracion !== undefined ? parseInt(duracion, 10) : actividad.duracion,
       cupo: cupo !== undefined ? parseInt(cupo, 10) : actividad.cupo,
       descripcion: descripcion !== undefined ? descripcion : actividad.descripcion,
-      estado: estado !== undefined ? estado : actividad.estado
+      estado: estado !== undefined ? estado : actividad.estado,
+      sede_id: sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : actividad.sede_id,
+      profesor_id: profesor_id !== undefined ? (profesor_id ? parseInt(profesor_id, 10) : null) : actividad.profesor_id
+    });
+
+    const actividadActualizada = await Actividad.findByPk(actividad.id, {
+      include: [
+        {
+          model: Sede,
+          as: 'sede',
+          attributes: ['id', 'nombre', 'ciudad']
+        },
+        {
+          model: Profesor,
+          as: 'profesor',
+          attributes: ['id', 'nombre', 'apellido', 'especialidad', 'email']
+        },
+        {
+          model: Turno,
+          as: 'turnos'
+        }
+      ]
     });
 
     return res.json({
       exito: true,
       mensaje: 'Actividad actualizada exitosamente',
-      actividad
+      actividad: actividadActualizada
     });
   } catch (error) {
     console.error('Error al actualizar actividad:', error);

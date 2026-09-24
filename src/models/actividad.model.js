@@ -1,5 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
+const Sede = require('./sede.model');
+const Profesor = require('./profesor.model');
 
 const Actividad = sequelize.define('Actividad', {
   id: {
@@ -28,10 +30,33 @@ const Actividad = sequelize.define('Actividad', {
   estado: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  sede_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: Sede,
+      key: 'id'
+    }
+  },
+  profesor_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: Profesor,
+      key: 'id'
+    }
   }
 }, {
   tableName: 'actividades',
   timestamps: false
 });
+
+// Relaciones
+Sede.hasMany(Actividad, { foreignKey: 'sede_id', as: 'actividades' });
+Actividad.belongsTo(Sede, { foreignKey: 'sede_id', as: 'sede' });
+
+Profesor.hasMany(Actividad, { foreignKey: 'profesor_id', as: 'actividades' });
+Actividad.belongsTo(Profesor, { foreignKey: 'profesor_id', as: 'profesor' });
 
 module.exports = Actividad;
