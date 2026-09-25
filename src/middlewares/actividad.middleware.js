@@ -14,13 +14,13 @@ const validarIdActividad = (req, res, next) => {
 
 // Validar creación de actividad
 const validarCrearActividad = (req, res, next) => {
-  const { nombre, duracion, cupo, descripcion } = req.body;
+  const { nombre, duracion, cupo, descripcion, dia_semana, horarioInicio, horaFin } = req.body;
 
   // 1. Campos obligatorios
-  if (!nombre || duracion === undefined || duracion === null || cupo === undefined || cupo === null) {
+  if (!nombre || duracion === undefined || duracion === null || cupo === undefined || cupo === null || !dia_semana || !horarioInicio || !horaFin) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'El nombre, la duración y el cupo son obligatorios'
+      mensaje: 'El nombre, la duración, el cupo, los días de dictado y el horario (inicio y fin) son obligatorios'
     });
   }
 
@@ -57,7 +57,30 @@ const validarCrearActividad = (req, res, next) => {
     });
   }
 
-  // 5. Validar descripción opcional
+  // 5. Validar días de dictado
+  if (typeof dia_semana !== 'string' || dia_semana.trim().length === 0) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'Debe seleccionar los días de dictado de la actividad'
+    });
+  }
+
+  // 6. Validar horarios
+  if (typeof horarioInicio !== 'string' || horarioInicio.trim().length === 0) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'Debe ingresar el horario de inicio'
+    });
+  }
+
+  if (typeof horaFin !== 'string' || horaFin.trim().length === 0) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'Debe ingresar el horario de fin'
+    });
+  }
+
+  // 7. Validar descripción opcional
   if (descripcion && typeof descripcion === 'string' && descripcion.trim().length > 1000) {
     return res.status(400).json({
       exito: false,
@@ -70,7 +93,7 @@ const validarCrearActividad = (req, res, next) => {
 
 // Validar actualización de actividad
 const validarActualizarActividad = (req, res, next) => {
-  const { nombre, duracion, cupo, descripcion, estado } = req.body;
+  const { nombre, duracion, cupo, descripcion, estado, dia_semana, horarioInicio, horaFin } = req.body;
 
   if (nombre !== undefined) {
     if (typeof nombre !== 'string' || nombre.trim().length === 0) {
@@ -103,6 +126,33 @@ const validarActualizarActividad = (req, res, next) => {
       return res.status(400).json({
         exito: false,
         mensaje: 'El cupo debe ser un número entero mayor a 0'
+      });
+    }
+  }
+
+  if (dia_semana !== undefined) {
+    if (typeof dia_semana !== 'string' || dia_semana.trim().length === 0) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'Los días de dictado no pueden estar vacíos'
+      });
+    }
+  }
+
+  if (horarioInicio !== undefined) {
+    if (typeof horarioInicio !== 'string' || horarioInicio.trim().length === 0) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El horario de inicio no puede estar vacío'
+      });
+    }
+  }
+
+  if (horaFin !== undefined) {
+    if (typeof horaFin !== 'string' || horaFin.trim().length === 0) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El horario de fin no puede estar vacío'
       });
     }
   }

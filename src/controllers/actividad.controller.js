@@ -98,12 +98,12 @@ const obtenerActividadPorId = async (req, res) => {
 
 // Crear nueva actividad
 const crearActividad = async (req, res) => {
-  const { nombre, duracion, cupo, descripcion, sede_id, profesor_id } = req.body;
+  const { nombre, duracion, cupo, descripcion, sede_id, profesor_id, dia_semana, horarioInicio, horaFin } = req.body;
 
-  if (!nombre || !duracion || !cupo) {
+  if (!nombre || !duracion || !cupo || !dia_semana || !horarioInicio || !horaFin) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'El nombre, la duración y el cupo son campos obligatorios'
+      mensaje: 'El nombre, la duración, el cupo, los días de dictado y el horario son campos obligatorios'
     });
   }
 
@@ -115,6 +115,17 @@ const crearActividad = async (req, res) => {
       descripcion: descripcion ? descripcion.trim() : null,
       sede_id: sede_id ? parseInt(sede_id, 10) : null,
       profesor_id: profesor_id ? parseInt(profesor_id, 10) : null,
+      estado: true
+    });
+
+    // Crear el turno u horario de dictado asociado a la actividad
+    await Turno.create({
+      actividad_id: nuevaActividad.id,
+      horarioInicio: horarioInicio.trim(),
+      horaFin: horaFin.trim(),
+      dia_semana: dia_semana.trim(),
+      profesor_id: profesor_id ? parseInt(profesor_id, 10) : null,
+      sede_id: sede_id ? parseInt(sede_id, 10) : null,
       estado: true
     });
 
@@ -139,7 +150,7 @@ const crearActividad = async (req, res) => {
 
     return res.status(201).json({
       exito: true,
-      mensaje: 'Actividad creada exitosamente',
+      mensaje: 'Actividad y horario de dictado creados exitosamente',
       actividad: actividadCompleta
     });
   } catch (error) {
@@ -155,10 +166,13 @@ const crearActividad = async (req, res) => {
 // Actualizar actividad
 const actualizarActividad = async (req, res) => {
   const { id } = req.params;
-  const { nombre, duracion, cupo, descripcion, estado, sede_id, profesor_id } = req.body;
+  const { nombre, duracion, cupo, descripcion, estado, sede_id, profesor_id, dia_semana, horarioInicio, horaFin } = req.body;
 
   try {
-    const actividad = await Actividad.findByPk(id);
+    const actividad = await Actividad.findByPk(id, {
+      include: [{ model: Turno, as: 'turnos' }]
+    });
+
     if (!actividad) {
       return res.status(404).json({
         exito: false,
@@ -166,15 +180,43 @@ const actualizarActividad = async (req, res) => {
       });
     }
 
+    const parsedSedeId = sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : actividad.sede_id;
+    const parsedProfesorId = profesor_id !== undefined ? (profesor_id ? parseInt(profesor_id, 10) : null) : actividad.profesor_id;
+
     await actividad.update({
       nombre: nombre !== undefined ? nombre.trim() : actividad.nombre,
       duracion: duracion !== undefined ? parseInt(duracion, 10) : actividad.duracion,
       cupo: cupo !== undefined ? parseInt(cupo, 10) : actividad.cupo,
       descripcion: descripcion !== undefined ? descripcion : actividad.descripcion,
       estado: estado !== undefined ? estado : actividad.estado,
-      sede_id: sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : actividad.sede_id,
-      profesor_id: profesor_id !== undefined ? (profesor_id ? parseInt(profesor_id, 10) : null) : actividad.profesor_id
+      sede_id: parsedSedeId,
+      profesor_id: parsedProfesorId
     });
+
+    // Actualizar o crear turno si se especificaron días u horarios
+    if (dia_semana !== undefined || horarioInicio !== undefined || horaFin !== undefined || sede_id !== undefined || profesor_id !== undefined) {
+      if (actividad.turnos && actividad.turnos.length > 0) {
+        for (const t of actividad.turnos) {
+          await t.update({
+            dia_semana: dia_semana !== undefined ? dia_semana.trim() : t.dia_semana,
+            horarioInicio: horarioInicio !== undefined ? horarioInicio.trim() : t.horarioInicio,
+            horaFin: horaFin !== undefined ? horaFin.trim() : t.horaFin,
+            sede_id: parsedSedeId,
+            profesor_id: parsedProfesorId
+          });
+        }
+      } else if (horarioInicio && horaFin && dia_semana) {
+        await Turno.create({
+          actividad_id: actividad.id,
+          horarioInicio: horarioInicio.trim(),
+          horaFin: horaFin.trim(),
+          dia_semana: dia_semana.trim(),
+          profesor_id: parsedProfesorId,
+          sede_id: parsedSedeId,
+          estado: true
+        });
+      }
+    }
 
     const actividadActualizada = await Actividad.findByPk(actividad.id, {
       include: [
