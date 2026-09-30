@@ -3,6 +3,7 @@ const Sede = require('../models/sede.model');
 const Profesor = require('../models/profesor.model');
 const Actividad = require('../models/actividad.model');
 const Turno = require('../models/turno.model');
+const cuotaService = require('../services/cuota.service');
 
 // Obtener estadísticas generales para el panel de administración
 const obtenerEstadisticas = async (req, res) => {
@@ -53,17 +54,60 @@ const obtenerEstadisticas = async (req, res) => {
   }
 };
 
-// Obtener listado de clientes/socios
+// Obtener listado de clientes/socios y usuarios en general con información de cuotas
 const obtenerUsuarios = async (req, res) => {
   try {
+    // Sincronizar estados de las cuotas antes de evaluar cobranza
+    await cuotaService.actualizarEstadosCuotas();
+
     const usuarios = await Usuario.findAll({
       attributes: { exclude: ['password'] },
       order: [['id', 'DESC']]
     });
 
+    const usuariosConEstadoCuotas = await Promise.all(
+      usuarios.map(async (usuario) => {
+        const jsonUser = usuario.toJSON();
+
+        if (usuario.rol === 'usuario') {
+          // Evaluar cobranza de usuario/cliente
+          const cobranza = await cuotaService.obtenerEstadoCobranzaUsuario(usuario.id);
+
+          // Si tiene cuotas 'no pagado', sincronizar o reflejar si está activo o desactivado por falta de pago
+          let estadoActual = usuario.estado;
+          if (cobranza.estadoCuota === 'Con Deuda') {
+            if (usuario.estado) {
+              await usuario.update({ estado: false });
+              estadoActual = false;
+            }
+          }
+
+          return {
+            ...jsonUser,
+            estado: estadoActual,
+            estadoCuota: cobranza.estadoCuota,
+            demorado: cobranza.demorado,
+            alDia: cobranza.alDia,
+            cantCuotasVencidas: cobranza.cantVencidas,
+            cuotasVencidas: cobranza.cuotasVencidas
+          };
+        } else {
+          // Administradores y profesores no poseen cuotas
+          return {
+            ...jsonUser,
+            estadoCuota: 'N/A',
+            demorado: false,
+            alDia: true,
+            cantCuotasVencidas: 0,
+            cuotasVencidas: []
+          };
+        }
+      })
+    );
+
     return res.json({
       exito: true,
-      usuarios
+      usuarios: usuariosConEstadoCuotas
     });
   } catch (error) {
     console.error('Error al obtener usuarios:', error);

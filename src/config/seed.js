@@ -1,9 +1,13 @@
+const { Op } = require('sequelize');
 const Usuario = require('../models/usuario.model');
 const Sede = require('../models/sede.model');
 const Profesor = require('../models/profesor.model');
 const Actividad = require('../models/actividad.model');
 const Turno = require('../models/turno.model');
 const Reserva = require('../models/reserva.model');
+const PrecioCuota = require('../models/precioCuota.model');
+const Cuota = require('../models/cuota.model');
+const cuotaService = require('../services/cuota.service');
 const sequelize = require('./db');
 
 const inicializarDatos = async () => {
@@ -308,6 +312,52 @@ const inicializarDatos = async () => {
       await Turno.bulkCreate(turnosIniciales);
       console.log(`✅ ${turnosIniciales.length} turnos configurados con combinaciones de días (Lun a Sáb) y rangos de 2hs creados con éxito.`);
     }
+
+    // 6. Pre-cargar PrecioCuota base si no existe
+    const cantidadPrecios = await PrecioCuota.count();
+    if (cantidadPrecios === 0) {
+      await PrecioCuota.create({
+        monto: 18000.00,
+        fecha_desde: '2026-01-01',
+        descripcion: 'Precio base de suscripción mensual 2026',
+        activo: true
+      });
+      console.log('✅ Precio de cuota inicial ($18.000) configurado con éxito.');
+    }
+
+    // 7. Eliminar cualquier cuota que pudiera existir para usuarios cuyo rol !== 'usuario'
+    const usuariosNoClientes = await Usuario.findAll({
+      where: {
+        rol: { [Op.ne]: 'usuario' }
+      }
+    });
+
+    if (usuariosNoClientes.length > 0) {
+      const idsNoClientes = usuariosNoClientes.map((u) => u.id);
+      const cuotasEliminadas = await Cuota.destroy({
+        where: {
+          usuario_id: { [Op.in]: idsNoClientes }
+        }
+      });
+      if (cuotasEliminadas > 0) {
+        console.log(`🧹 Se eliminaron ${cuotasEliminadas} cuotas asignadas a usuarios no clientes (administradores o profesores).`);
+      }
+    }
+
+    // 8. Solo generar cuotas iniciales para usuarios con rol === 'usuario'
+    const clientes = await Usuario.findAll({
+      where: { rol: 'usuario' }
+    });
+    for (const u of clientes) {
+      const cantCuotas = await Cuota.count({ where: { usuario_id: u.id } });
+      if (cantCuotas === 0) {
+        // Usar su fecha_inscripcion o fecha actual/base
+        await cuotaService.generarCuotasIniciales(u.id, u.fecha_inscripcion || new Date());
+      } else {
+        await cuotaService.actualizarEstadosCuotas(u.id);
+      }
+    }
+    console.log('✅ Cuotas verificadas e inicializadas únicamente para clientes (socios).');
 
   } catch (error) {
     console.warn('⚠️ Error durante la inicialización de datos de seed:', error.message);

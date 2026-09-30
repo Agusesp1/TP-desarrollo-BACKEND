@@ -1,5 +1,6 @@
 const Usuario = require('../models/usuario.model');
 const emailService = require('../services/email.service');
+const cuotaService = require('../services/cuota.service');
 
 // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para MySQL DATE
 const formatearFechaParaMySQL = (fechaStr) => {
@@ -48,7 +49,16 @@ const registro = async (req, res) => {
       password
     });
 
-    // 4. Enviar correo de bienvenida (asíncrono, sin bloquear la respuesta)
+    // 4. Generar cuotas iniciales automáticamente para los próximos 5 meses ÚNICAMENTE si es cliente/usuario
+    if (nuevoUsuario.rol === 'usuario') {
+      try {
+        await cuotaService.generarCuotasIniciales(nuevoUsuario.id, nuevoUsuario.fecha_inscripcion || new Date());
+      } catch (cuotaErr) {
+        console.warn('⚠️ No se pudieron generar las cuotas iniciales automáticamente:', cuotaErr.message || cuotaErr);
+      }
+    }
+
+    // 5. Enviar correo de bienvenida (asíncrono, sin bloquear la respuesta)
     emailService.enviarMailBienvenida({ nombre, email }).catch((err) => {
       console.warn('⚠️ No se pudo despachar el correo de bienvenida:', err.message || err);
     });

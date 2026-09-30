@@ -10,6 +10,7 @@ const actividadRoutes = require('./routes/actividad.routes');
 const turnoRoutes = require('./routes/turno.routes');
 const reservaRoutes = require('./routes/reserva.routes');
 const adminRoutes = require('./routes/admin.routes');
+const cuotaRoutes = require('./routes/cuota.routes');
 const sequelize = require('./config/db');
 const inicializarDatos = require('./config/seed');
 
@@ -35,6 +36,7 @@ app.use('/api/actividades', actividadRoutes);
 app.use('/api/turnos', turnoRoutes);
 app.use('/api/reservas', reservaRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/cuotas', cuotaRoutes);
 
 // Probar conexión a la base de datos con Sequelize e inicializar datos al iniciar el servidor
 sequelize.authenticate()

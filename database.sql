@@ -78,3 +78,39 @@ CREATE TABLE IF NOT EXISTS turnos (
 INSERT INTO usuarios (nombre, apellido, dni, fecha_nacimiento, email, password, bio, categoria, rol, estado)
 VALUES ('Administrador', 'GymFit', '00000001', '1990-01-01', 'administraciongymfit@gmail.com', 'adminfit', 'Administrador general del sistema.', 'Premium', 'admin', true)
 ON DUPLICATE KEY UPDATE rol = 'admin', password = 'adminfit';
+
+-- 9. Crear la tabla de precios programados de cuotas
+CREATE TABLE IF NOT EXISTS precios_cuota (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  monto DECIMAL(10, 2) NOT NULL,
+  fecha_desde DATE NOT NULL,
+  descripcion VARCHAR(255),
+  activo BOOLEAN DEFAULT true,
+  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. Crear la tabla de cuotas de socios
+CREATE TABLE IF NOT EXISTS cuotas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  numero_cuota INT NOT NULL,
+  periodo VARCHAR(50) NOT NULL,
+  monto DECIMAL(10, 2) NOT NULL,
+  fecha_emision DATE NOT NULL,
+  fecha_vencimiento DATE NOT NULL,
+  fecha_limite_pago DATE NOT NULL,
+  estado ENUM ('pendiente', 'en demora', 'no pagado', 'pagado') DEFAULT 'pendiente',
+  fecha_pago TIMESTAMP NULL,
+  metodo_pago VARCHAR(50) NULL,
+  comprobante VARCHAR(100) NULL,
+  mp_payment_id VARCHAR(100) NULL,
+  mp_status VARCHAR(50) NULL,
+  mp_preference_id VARCHAR(100) NULL,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+-- 11. Insertar precio base inicial de cuota
+INSERT INTO precios_cuota (monto, fecha_desde, descripcion, activo)
+VALUES (18000.00, '2026-01-01', 'Tarifa general base FitApp 2026', true)
+ON DUPLICATE KEY UPDATE monto = VALUES(monto);
+
