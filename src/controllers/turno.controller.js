@@ -7,7 +7,7 @@ const Reserva = require('../models/reserva.model');
 // Obtener todos los turnos con información real de cupos y reservas
 const obtenerTurnos = async (req, res) => {
   try {
-    const { actividad_id, sede_id, dia_semana, soloActivos, fecha, usuario_id } = req.query;
+    const { actividad_id, sede_id, dia_semana, soloActivos, fecha, usuario_id, page, limit } = req.query;
     const whereClause = {};
 
     if (actividad_id) whereClause.actividad_id = actividad_id;
@@ -19,34 +19,58 @@ const obtenerTurnos = async (req, res) => {
     const d = new Date();
     const fechaConsulta = fecha || `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    const turnos = await Turno.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: Actividad,
-          as: 'actividad',
-          attributes: ['id', 'nombre', 'duracion', 'cupo', 'descripcion']
-        },
-        {
-          model: Profesor,
-          as: 'profesor',
-          attributes: ['id', 'nombre', 'apellido', 'especialidad']
-        },
-        {
-          model: Sede,
-          as: 'sede',
-          attributes: ['id', 'nombre', 'ciudad', 'direccion']
-        },
-        {
-          model: Reserva,
-          as: 'reservas',
-          where: { fecha: fechaConsulta, estado: 'confirmada' },
-          required: false,
-          attributes: ['id', 'usuario_id', 'fecha', 'estado']
-        }
-      ],
-      order: [['dia_semana', 'ASC'], ['horarioInicio', 'ASC']]
-    });
+    let turnos = [];
+    let totalCount = 0;
+    let pageNum = page ? parseInt(page, 10) : null;
+    let limitNum = limit ? parseInt(limit, 10) : 10;
+
+    const includeConfig = [
+      {
+        model: Actividad,
+        as: 'actividad',
+        attributes: ['id', 'nombre', 'duracion', 'cupo', 'descripcion']
+      },
+      {
+        model: Profesor,
+        as: 'profesor',
+        attributes: ['id', 'nombre', 'apellido', 'especialidad', 'sede_id']
+      },
+      {
+        model: Sede,
+        as: 'sede',
+        attributes: ['id', 'nombre', 'ciudad', 'direccion']
+      },
+      {
+        model: Reserva,
+        as: 'reservas',
+        where: { fecha: fechaConsulta, estado: 'confirmada' },
+        required: false,
+        attributes: ['id', 'usuario_id', 'fecha', 'estado']
+      }
+    ];
+
+    if (pageNum && pageNum > 0) {
+      const offset = (pageNum - 1) * limitNum;
+      const result = await Turno.findAndCountAll({
+        where: whereClause,
+        include: includeConfig,
+        order: [['dia_semana', 'ASC'], ['horarioInicio', 'ASC']],
+        offset,
+        limit: limitNum,
+        distinct: true
+      });
+      turnos = result.rows;
+      totalCount = result.count;
+    } else {
+      turnos = await Turno.findAll({
+        where: whereClause,
+        include: includeConfig,
+        order: [['dia_semana', 'ASC'], ['horarioInicio', 'ASC']]
+      });
+      totalCount = turnos.length;
+      pageNum = 1;
+      limitNum = turnos.length || 10;
+    }
 
     const turnosFormateados = turnos.map(t => {
       const turnoJson = t.toJSON();
@@ -71,7 +95,13 @@ const obtenerTurnos = async (req, res) => {
     return res.json({
       exito: true,
       fecha: fechaConsulta,
-      turnos: turnosFormateados
+      turnos: turnosFormateados,
+      paginacion: {
+        total: totalCount,
+        paginaActual: pageNum,
+        totalPaginas: Math.ceil(totalCount / (limitNum || 1)) || 1,
+        limite: limitNum
+      }
     });
   } catch (error) {
     console.error('Error al obtener turnos:', error);
@@ -137,13 +167,39 @@ const crearTurno = async (req, res) => {
       });
     }
 
+    // Determinar la sede efectiva (del turno o de la actividad)
+    const effectiveSedeId = sede_id ? parseInt(sede_id, 10) : (actividad.sede_id ? parseInt(actividad.sede_id, 10) : null);
+
+    // Validar que el profesor asignado coincida con la sede de la actividad/turno
+    if (profesor_id) {
+      const profesor = await Profesor.findByPk(profesor_id);
+      if (!profesor) {
+        return res.status(404).json({
+          exito: false,
+          mensaje: 'El profesor especificado no existe'
+        });
+      }
+      if (profesor.sede_id && effectiveSedeId && parseInt(profesor.sede_id, 10) !== parseInt(effectiveSedeId, 10)) {
+        const [sedeProf, sedeTurno] = await Promise.all([
+          Sede.findByPk(profesor.sede_id),
+          Sede.findByPk(effectiveSedeId)
+        ]);
+        const nomSedeProf = sedeProf ? sedeProf.nombre : `Sede #${profesor.sede_id}`;
+        const nomSedeTurno = sedeTurno ? sedeTurno.nombre : `Sede #${effectiveSedeId}`;
+        return res.status(400).json({
+          exito: false,
+          mensaje: `El profesor ${profesor.nombre} ${profesor.apellido} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
+        });
+      }
+    }
+
     const nuevoTurno = await Turno.create({
       actividad_id: parseInt(actividad_id, 10),
       horarioInicio: horarioInicio.trim(),
       horaFin: horaFin.trim(),
       dia_semana: dia_semana || 'Lunes',
       profesor_id: profesor_id ? parseInt(profesor_id, 10) : null,
-      sede_id: sede_id ? parseInt(sede_id, 10) : null,
+      sede_id: effectiveSedeId,
       estado: true
     });
 
@@ -185,9 +241,11 @@ const actualizarTurno = async (req, res) => {
       });
     }
 
-    if (actividad_id) {
-      const actividad = await Actividad.findByPk(actividad_id);
-      if (!actividad) {
+    const targetActividadId = actividad_id !== undefined ? parseInt(actividad_id, 10) : turno.actividad_id;
+    let actividadObj = null;
+    if (targetActividadId) {
+      actividadObj = await Actividad.findByPk(targetActividadId);
+      if (!actividadObj) {
         return res.status(404).json({
           exito: false,
           mensaje: 'La actividad especificada no existe'
@@ -195,13 +253,40 @@ const actualizarTurno = async (req, res) => {
       }
     }
 
+    const targetSedeId = sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : turno.sede_id;
+    const effectiveSedeId = targetSedeId || (actividadObj?.sede_id ? parseInt(actividadObj.sede_id, 10) : null);
+    const targetProfesorId = profesor_id !== undefined ? (profesor_id ? parseInt(profesor_id, 10) : null) : turno.profesor_id;
+
+    // Validar coincidencia de sede del profesor
+    if (targetProfesorId) {
+      const profesor = await Profesor.findByPk(targetProfesorId);
+      if (!profesor) {
+        return res.status(404).json({
+          exito: false,
+          mensaje: 'El profesor especificado no existe'
+        });
+      }
+      if (profesor.sede_id && effectiveSedeId && parseInt(profesor.sede_id, 10) !== parseInt(effectiveSedeId, 10)) {
+        const [sedeProf, sedeTurno] = await Promise.all([
+          Sede.findByPk(profesor.sede_id),
+          Sede.findByPk(effectiveSedeId)
+        ]);
+        const nomSedeProf = sedeProf ? sedeProf.nombre : `Sede #${profesor.sede_id}`;
+        const nomSedeTurno = sedeTurno ? sedeTurno.nombre : `Sede #${effectiveSedeId}`;
+        return res.status(400).json({
+          exito: false,
+          mensaje: `El profesor ${profesor.nombre} ${profesor.apellido} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
+        });
+      }
+    }
+
     await turno.update({
-      actividad_id: actividad_id !== undefined ? parseInt(actividad_id, 10) : turno.actividad_id,
+      actividad_id: targetActividadId,
       horarioInicio: horarioInicio !== undefined ? horarioInicio.trim() : turno.horarioInicio,
       horaFin: horaFin !== undefined ? horaFin.trim() : turno.horaFin,
       dia_semana: dia_semana !== undefined ? dia_semana : turno.dia_semana,
-      profesor_id: profesor_id !== undefined ? (profesor_id ? parseInt(profesor_id, 10) : null) : turno.profesor_id,
-      sede_id: sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : turno.sede_id,
+      profesor_id: targetProfesorId,
+      sede_id: effectiveSedeId,
       estado: estado !== undefined ? estado : turno.estado
     });
 

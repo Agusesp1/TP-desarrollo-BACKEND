@@ -108,13 +108,32 @@ const crearActividad = async (req, res) => {
   }
 
   try {
+    const targetSedeId = sede_id ? parseInt(sede_id, 10) : null;
+    const targetProfesorId = profesor_id ? parseInt(profesor_id, 10) : null;
+
+    if (targetProfesorId && targetSedeId) {
+      const profesor = await Profesor.findByPk(targetProfesorId);
+      if (profesor && profesor.sede_id && parseInt(profesor.sede_id, 10) !== targetSedeId) {
+        const [sedeProf, sedeAct] = await Promise.all([
+          Sede.findByPk(profesor.sede_id),
+          Sede.findByPk(targetSedeId)
+        ]);
+        const nomSedeProf = sedeProf ? sedeProf.nombre : `Sede #${profesor.sede_id}`;
+        const nomSedeAct = sedeAct ? sedeAct.nombre : `Sede #${targetSedeId}`;
+        return res.status(400).json({
+          exito: false,
+          mensaje: `El profesor ${profesor.nombre} ${profesor.apellido} está asignado a ${nomSedeProf} y no puede dictar actividades en ${nomSedeAct}`
+        });
+      }
+    }
+
     const nuevaActividad = await Actividad.create({
       nombre: nombre.trim(),
       duracion: parseInt(duracion, 10),
       cupo: parseInt(cupo, 10),
       descripcion: descripcion ? descripcion.trim() : null,
-      sede_id: sede_id ? parseInt(sede_id, 10) : null,
-      profesor_id: profesor_id ? parseInt(profesor_id, 10) : null,
+      sede_id: targetSedeId,
+      profesor_id: targetProfesorId,
       estado: true
     });
 
@@ -124,8 +143,8 @@ const crearActividad = async (req, res) => {
       horarioInicio: horarioInicio.trim(),
       horaFin: horaFin.trim(),
       dia_semana: dia_semana.trim(),
-      profesor_id: profesor_id ? parseInt(profesor_id, 10) : null,
-      sede_id: sede_id ? parseInt(sede_id, 10) : null,
+      profesor_id: targetProfesorId,
+      sede_id: targetSedeId,
       estado: true
     });
 
@@ -182,6 +201,22 @@ const actualizarActividad = async (req, res) => {
 
     const parsedSedeId = sede_id !== undefined ? (sede_id ? parseInt(sede_id, 10) : null) : actividad.sede_id;
     const parsedProfesorId = profesor_id !== undefined ? (profesor_id ? parseInt(profesor_id, 10) : null) : actividad.profesor_id;
+
+    if (parsedProfesorId && parsedSedeId) {
+      const profesor = await Profesor.findByPk(parsedProfesorId);
+      if (profesor && profesor.sede_id && parseInt(profesor.sede_id, 10) !== parsedSedeId) {
+        const [sedeProf, sedeAct] = await Promise.all([
+          Sede.findByPk(profesor.sede_id),
+          Sede.findByPk(parsedSedeId)
+        ]);
+        const nomSedeProf = sedeProf ? sedeProf.nombre : `Sede #${profesor.sede_id}`;
+        const nomSedeAct = sedeAct ? sedeAct.nombre : `Sede #${parsedSedeId}`;
+        return res.status(400).json({
+          exito: false,
+          mensaje: `El profesor ${profesor.nombre} ${profesor.apellido} está asignado a ${nomSedeProf} y no puede dictar actividades en ${nomSedeAct}`
+        });
+      }
+    }
 
     await actividad.update({
       nombre: nombre !== undefined ? nombre.trim() : actividad.nombre,
