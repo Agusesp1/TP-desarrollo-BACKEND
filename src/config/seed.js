@@ -14,7 +14,13 @@ const sequelize = require('./db');
 const inicializarDatos = async () => {
   try {
     // Sincronizar modelos con la base de datos (crea o actualiza tablas según sea necesario)
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
+    try {
+      await sequelize.query('ALTER TABLE sedes ADD COLUMN horarios_dias JSON;');
+      console.log('✅ Columna horarios_dias agregada a la tabla sedes.');
+    } catch (error) {
+      // Ignorar si la columna ya existe
+    }
     console.log('📦 Base de datos sincronizada correctamente.');
 
     // 1. Crear o asegurar usuario Administrador

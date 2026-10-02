@@ -120,6 +120,8 @@ const obtenerTodasCuotas = async (req, res) => {
 
     if (estado && estado !== 'todos') {
       whereClause.estado = estado;
+    } else if (estado === 'todos' || todas === 'true') {
+      // Devolver todas las cuotas sin filtrar por estado
     } else if (soloVencidas === 'true' || todas !== 'true') {
       // Filtrar únicamente cuotas vencidas ('en demora' o 'no pagado')
       whereClause.estado = { [Op.in]: ['en demora', 'no pagado'] };
@@ -182,12 +184,22 @@ const obtenerHistorialPrecios = async (req, res) => {
     });
 
     const hoyStr = cuotaService.getFechaHoyLocal();
-    const precioVigenteHoy = await cuotaService.obtenerPrecioVigenteParaFecha(hoyStr);
+    
+    // Encontrar el objeto completo del precio vigente hoy
+    let precioVigenteHoyObj = precios.find(p => p.activo && p.fecha_desde <= hoyStr);
+    
+    if (!precioVigenteHoyObj) {
+      precioVigenteHoyObj = precios.find(p => p.activo);
+    }
+    
+    if (!precioVigenteHoyObj) {
+      precioVigenteHoyObj = { monto: 18000.00, fecha_desde: hoyStr, descripcion: 'Tarifa general por defecto' };
+    }
 
     return res.json({
       exito: true,
       fechaConsulta: hoyStr,
-      precioVigente: precioVigenteHoy,
+      precioVigente: precioVigenteHoyObj,
       precios
     });
   } catch (error) {
@@ -234,9 +246,22 @@ const crearOActualizarPrecio = async (req, res) => {
         descripcion: descripcion || precio.descripcion,
         activo: activo !== undefined ? activo : precio.activo
       });
+
+      // Actualizar el monto de TODAS las cuotas que aún no estén pagadas
+      const cuotasPendientes = await Cuota.findAll({
+        where: { estado: { [Op.ne]: 'pagado' } }
+      });
+
+      for (const cuota of cuotasPendientes) {
+        const nuevoMonto = await cuotaService.obtenerPrecioVigenteParaFecha(cuota.fecha_vencimiento);
+        if (Number(cuota.monto) !== Number(nuevoMonto)) {
+          await cuota.update({ monto: nuevoMonto });
+        }
+      }
+
       return res.json({
         exito: true,
-        mensaje: `Precio para la fecha ${fechaFormateada} actualizado exitosamente`,
+        mensaje: `Precio para la fecha ${fechaFormateada} actualizado exitosamente y cuotas pendientes actualizadas`,
         precio
       });
     }
@@ -248,9 +273,22 @@ const crearOActualizarPrecio = async (req, res) => {
       activo: activo !== undefined ? activo : true
     });
 
+    // Actualizar el monto de TODAS las cuotas que aún no estén pagadas
+    // calculando su precio vigente según su fecha de vencimiento
+    const cuotasPendientes = await Cuota.findAll({
+      where: { estado: { [Op.ne]: 'pagado' } }
+    });
+
+    for (const cuota of cuotasPendientes) {
+      const nuevoMonto = await cuotaService.obtenerPrecioVigenteParaFecha(cuota.fecha_vencimiento);
+      if (Number(cuota.monto) !== Number(nuevoMonto)) {
+        await cuota.update({ monto: nuevoMonto });
+      }
+    }
+
     return res.status(201).json({
       exito: true,
-      mensaje: 'Nuevo precio programado registrado con éxito',
+      mensaje: 'Nuevo precio programado registrado con éxito y cuotas pendientes actualizadas',
       precio
     });
   } catch (error) {
@@ -372,21 +410,65 @@ const crearPreferenciaMP = async (req, res) => {
       });
     }
 
+    if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
+      return res.status(500).json({ exito: false, mensaje: 'Mercado Pago no está configurado (falta Access Token).' });
+    }
+
+    const { MercadoPagoConfig, Preference } = require('mercadopago');
+    const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
+    const preference = new Preference(client);
+
     const title = `Gimnasio FitApp - Cuota N° ${cuota.numero_cuota} (${cuota.periodo})`;
-    const preferenceId = `MP-PREF-${cuota.id}-${Date.now()}`;
-    const initPoint = `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${preferenceId}`;
+
+    const frontUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const isHttp = frontUrl.startsWith('http://');
+
+    // No utilizar redirectors intermedios como httpbin.org, ya que Mercado Pago añade parámetros
+    // a la query string (status, external_reference, etc.) y los proxies suelen descartarlos.
+    // Mercado Pago admite URLs http://localhost... para back_urls en entorno de pruebas.
+    const getBackUrl = (path) => {
+      return `${frontUrl}${path}`;
+    };
+
+    const body = {
+      items: [
+        {
+          id: cuota.id.toString(),
+          title: title,
+          quantity: 1,
+          unit_price: Number(cuota.monto),
+          currency_id: 'ARS',
+        }
+      ],
+      payer: {
+        name: cuota.usuario?.nombre || 'Socio',
+        surname: cuota.usuario?.apellido || 'FitApp',
+        email: cuota.usuario?.email || 'socio@gymfit.com',
+      },
+      back_urls: {
+        success: getBackUrl('/user?pago=success&tab=cuotas'),
+        failure: getBackUrl('/user?pago=failure&tab=cuotas'),
+        pending: getBackUrl('/user?pago=pending&tab=cuotas')
+      },
+      auto_return: 'approved',
+      notification_url: `${process.env.BACKEND_URL || 'https://tu-dominio.com'}/api/cuotas/mercadopago/webhook`,
+      external_reference: cuota.id.toString()
+    };
+
+    const response = await preference.create({ body });
 
     await cuota.update({
-      mp_preference_id: preferenceId
+      mp_preference_id: response.id
     });
 
     return res.json({
       exito: true,
-      preferenceId,
-      init_point: initPoint,
+      preferenceId: response.id,
+      init_point: response.init_point,
+      sandbox_init_point: response.sandbox_init_point,
       cuota_id: cuota.id,
       monto: cuota.monto,
-      title,
+      title: title,
       socio: {
         nombre: `${cuota.usuario?.nombre || ''} ${cuota.usuario?.apellido || ''}`.trim(),
         email: cuota.usuario?.email
@@ -407,81 +489,210 @@ const crearPreferenciaMP = async (req, res) => {
  * Webhook y procesamiento de pago aprobado de Mercado Pago.
  */
 const webhookMercadoPago = async (req, res) => {
+  const { query, body } = req;
+  const topic = query.topic || query.type || body?.type;
+  
   try {
+    if (topic === 'payment' || topic === 'payment.created' || topic === 'payment.updated') {
+      const paymentId = query.id || query['data.id'] || body?.data?.id;
+      
+      if (!paymentId) return res.status(400).send('No payment ID');
+
+      const { MercadoPagoConfig, Payment } = require('mercadopago');
+      const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
+      const payment = new Payment(client);
+      
+      const paymentData = await payment.get({ id: paymentId });
+      
+      if (paymentData && paymentData.external_reference) {
+        const cuotaId = paymentData.external_reference;
+        const status = paymentData.status;
+
+        const cuota = await Cuota.findByPk(cuotaId);
+        
+        if (cuota) {
+          await cuota.update({
+            mp_payment_id: paymentId.toString(),
+            mp_status: status
+          });
+
+          if (status === 'approved' && cuota.estado !== 'pagado') {
+            await cuota.update({
+              estado: 'pagado',
+              fecha_pago: new Date(),
+              metodo_pago: 'Mercado Pago',
+              comprobante: `MP-${paymentId}`
+            });
+            
+            // Si el usuario estaba desactivado por falta de pago y ya no tiene cuotas con deuda, reactivarlo
+            if (cuota.usuario_id) {
+              const cobranza = await cuotaService.obtenerEstadoCobranzaUsuario(cuota.usuario_id);
+              if (cobranza.estadoCuota !== 'Con Deuda') {
+                const u = await Usuario.findByPk(cuota.usuario_id);
+                if (u && !u.estado) {
+                  await u.update({ estado: true });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error procesando Webhook de MP:', error);
+    return res.status(500).send('Error');
+  }
+};
+
+/**
+ * Confirmación robusta de pago de Mercado Pago.
+ * Soporta parámetros por body o query string (cuota_id, payment_id, status, preference_id).
+ * Acredita la cuota, registra comprobante y reactiva al socio si ya no adeuda cuotas en mora.
+ */
+const confirmarPagoMP = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const query = req.query || {};
+
     const cuotaId =
-      req.body?.cuota_id ||
-      req.body?.external_reference ||
-      req.query?.cuota_id ||
-      req.query?.external_reference ||
-      req.params?.id;
+      body.cuota_id ||
+      body.cuotaId ||
+      body.id ||
+      body.external_reference ||
+      query.cuota_id ||
+      query.cuotaId ||
+      query.id ||
+      query.external_reference;
 
     const paymentId =
-      req.body?.payment_id ||
-      req.body?.data?.id ||
-      req.query?.payment_id ||
-      req.query?.collection_id ||
-      `MP-${Date.now()}`;
+      body.payment_id ||
+      body.paymentId ||
+      body.collection_id ||
+      query.payment_id ||
+      query.paymentId ||
+      query.collection_id;
+
+    const status =
+      body.status ||
+      body.collection_status ||
+      query.status ||
+      query.collection_status ||
+      'approved';
+
+    const preferenceId =
+      body.preference_id ||
+      body.preferenceId ||
+      query.preference_id ||
+      query.preferenceId;
 
     let cuota = null;
 
     if (cuotaId) {
-      cuota = await Cuota.findByPk(cuotaId);
+      cuota = await Cuota.findByPk(cuotaId, {
+        include: [{ model: Usuario, as: 'usuario' }]
+      });
     }
 
-    // Si aún no se encontró y se pasó preference_id
-    const preferenceId = req.body?.preference_id || req.query?.preference_id;
     if (!cuota && preferenceId) {
-      cuota = await Cuota.findOne({ where: { mp_preference_id: preferenceId } });
+      cuota = await Cuota.findOne({
+        where: { mp_preference_id: preferenceId },
+        include: [{ model: Usuario, as: 'usuario' }]
+      });
     }
 
     if (!cuota) {
       return res.status(404).json({
         exito: false,
-        mensaje: 'No se encontró la cuota asociada a la transacción de Mercado Pago'
+        mensaje: 'Cuota no encontrada'
       });
     }
 
-    const comprobanteMP = `MP-${paymentId}`;
+    // Si la cuota ya estaba pagada previamente, retorna éxito sin error
+    if (cuota.estado === 'pagado') {
+      let usuarioInfo = null;
+      if (cuota.usuario_id) {
+        const cobranza = await cuotaService.obtenerEstadoCobranzaUsuario(cuota.usuario_id);
+        const usuario = await Usuario.findByPk(cuota.usuario_id);
+        if (usuario) {
+          const { password: _, ...userData } = usuario.toJSON();
+          usuarioInfo = {
+            ...userData,
+            estadoCuota: cobranza.estadoCuota,
+            alDia: cobranza.alDia,
+            demorado: cobranza.demorado
+          };
+        }
+      }
 
-    await cuota.update({
+      return res.json({
+        exito: true,
+        mensaje: 'La cuota ya se encuentra pagada',
+        cuota: mapearCuotaParaFront(cuota),
+        usuario: usuarioInfo
+      });
+    }
+
+    // Actualiza la cuota a estado pagado con el comprobante MP
+    const numComprobante = 'MP-' + (paymentId || Date.now());
+    const updateData = {
       estado: 'pagado',
-      mp_payment_id: String(paymentId),
-      mp_status: 'approved',
+      fecha_pago: new Date(),
       metodo_pago: 'Mercado Pago',
-      comprobante: comprobanteMP,
-      fecha_pago: new Date()
-    });
+      comprobante: numComprobante,
+      mp_payment_id: (paymentId || '').toString(),
+      mp_status: status || 'approved'
+    };
 
-    // Si el usuario estaba desactivado por falta de pago y ya no tiene cuotas con deuda, reactivarlo
+    if (preferenceId && !cuota.mp_preference_id) {
+      updateData.mp_preference_id = preferenceId;
+    }
+
+    await cuota.update(updateData);
+    await cuota.reload();
+
+    // Sincroniza la cobranza del usuario: si el usuario estaba pausado (estado === false)
+    // y ya no tiene deudas en mora (no pagado), reactiva al usuario (estado = true)
+    let usuarioActualizado = null;
     if (cuota.usuario_id) {
       const cobranza = await cuotaService.obtenerEstadoCobranzaUsuario(cuota.usuario_id);
-      if (cobranza.estadoCuota !== 'Con Deuda') {
-        const u = await Usuario.findByPk(cuota.usuario_id);
-        if (u && !u.estado) {
-          await u.update({ estado: true });
+      const usuario = await Usuario.findByPk(cuota.usuario_id);
+
+      if (usuario) {
+        if (!usuario.estado && cobranza.estadoCuota !== 'Con Deuda') {
+          await usuario.update({ estado: true });
         }
+
+        const { password: _, ...userData } = usuario.toJSON();
+        usuarioActualizado = {
+          ...userData,
+          estadoCuota: cobranza.estadoCuota,
+          alDia: cobranza.alDia,
+          demorado: cobranza.demorado
+        };
       }
     }
 
-    console.log(`✅ Pago de cuota ${cuota.id} acreditado exitosamente con Mercado Pago (${comprobanteMP})`);
-
     return res.json({
       exito: true,
-      mensaje: 'Pago de cuota acreditado correctamente mediante Mercado Pago',
-      comprobante: comprobanteMP,
-      cuota: mapearCuotaParaFront(cuota)
+      mensaje: 'Pago acreditado con éxito',
+      cuota: mapearCuotaParaFront(cuota),
+      usuario: usuarioActualizado
     });
   } catch (error) {
-    console.error('Error al procesar webhook / éxito de Mercado Pago:', error);
+    console.error('Error al confirmar pago de Mercado Pago:', error);
     return res.status(500).json({
       exito: false,
-      mensaje: 'Error al procesar el pago de Mercado Pago',
+      mensaje: 'Error interno al confirmar el pago',
       detalles: error.message
     });
   }
 };
 
 module.exports = {
+  mapearCuotaParaFront,
+  formatearFechaAR,
   obtenerMisCuotas,
   obtenerTodasCuotas,
   obtenerHistorialPrecios,
@@ -489,5 +700,8 @@ module.exports = {
   pagarCuotaManual,
   crearPreferenciaMP,
   webhookMercadoPago,
-  procesarExitoMP: webhookMercadoPago
+  confirmarPagoMP,
+  confirmarMercadoPago: confirmarPagoMP,
+  procesarExitoMP: confirmarPagoMP
 };
+

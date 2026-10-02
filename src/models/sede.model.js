@@ -36,6 +36,10 @@ const Sede = sequelize.define('Sede', {
     allowNull: false,
     defaultValue: 'Lunes a Viernes 07:00 a 23:00 - Sábados 08:00 a 20:00'
   },
+  horarios_dias: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
   capacidad: {
     type: DataTypes.INTEGER,
     defaultValue: 150

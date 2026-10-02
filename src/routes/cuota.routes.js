@@ -19,7 +19,13 @@ router.post('/:id/pagar', cuotaController.pagarCuotaManual);
 router.post('/preferencia-mp', cuotaController.crearPreferenciaMP);
 router.post('/:id/preferencia-mp', cuotaController.crearPreferenciaMP);
 router.post('/mercadopago/webhook', cuotaController.webhookMercadoPago);
-router.post('/mercadopago/exito', cuotaController.procesarExitoMP);
-router.get('/mercadopago/exito', cuotaController.procesarExitoMP);
+
+// 5. Confirmación de pago de Mercado Pago
+router.post('/mercadopago/confirmar', cuotaController.confirmarPagoMP);
+router.get('/mercadopago/confirmar', cuotaController.confirmarPagoMP);
+router.post('/mercadopago/exito', cuotaController.confirmarPagoMP);
+router.get('/mercadopago/exito', cuotaController.confirmarPagoMP);
+router.post('/confirmar', cuotaController.confirmarPagoMP);
+router.get('/confirmar', cuotaController.confirmarPagoMP);
 
 module.exports = router;
