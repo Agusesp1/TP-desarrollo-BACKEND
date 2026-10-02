@@ -32,10 +32,18 @@ const crearPreferenciaPago = async (req, res) => {
     const frontUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const isHttp = frontUrl.startsWith('http://');
 
-    // No utilizar redirectors intermedios como httpbin.org, ya que Mercado Pago añade parámetros
-    // a la query string (status, external_reference, etc.) y los proxies suelen descartarlos.
+    // Usar httpbin.org para pasar la validación HTTPS de auto_return en entorno local.
+    // Incrustamos el ID de la cuota en la URL codificada para que el frontend pueda recibirlo,
+    // ya que httpbin descarta los parámetros que Mercado Pago añade al final.
     const getBackUrl = (path) => {
-      return `${frontUrl}${path}`;
+      const target = `${frontUrl}${path}`;
+      if (isHttp) {
+        const targetWithParams = target.includes('?') 
+          ? `${target}&external_reference=${cuota.id}` 
+          : `${target}?external_reference=${cuota.id}`;
+        return `https://httpbin.org/redirect-to?url=${encodeURIComponent(targetWithParams)}`;
+      }
+      return target;
     };
 
     const body = {
