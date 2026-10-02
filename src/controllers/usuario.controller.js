@@ -70,8 +70,9 @@ const cambiarPassword = async (req, res) => {
       });
     }
 
-    // 2. Verificar contraseña actual
-    if (usuario.password !== actualPassword) {
+    // 2. Verificar contraseña actual de forma segura con bcrypt
+    const esPasswordValida = await usuario.validarPassword(actualPassword);
+    if (!esPasswordValida) {
       return res.status(401).json({
         exito: false,
         mensaje: 'La contraseña actual ingresada es incorrecta'

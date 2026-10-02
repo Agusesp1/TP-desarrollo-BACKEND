@@ -74,10 +74,10 @@ CREATE TABLE IF NOT EXISTS turnos (
   FOREIGN KEY (sede_id) REFERENCES sedes(id) ON DELETE SET NULL
 );
 
--- 8. Insertar administrador predeterminado si no existe
+-- 8. Insertar administrador predeterminado si no existe (contraseña encriptada con bcrypt: 'adminfit')
 INSERT INTO usuarios (nombre, apellido, dni, fecha_nacimiento, email, password, bio, categoria, rol, estado)
-VALUES ('Administrador', 'GymFit', '00000001', '1990-01-01', 'administraciongymfit@gmail.com', 'adminfit', 'Administrador general del sistema.', 'Premium', 'admin', true)
-ON DUPLICATE KEY UPDATE rol = 'admin', password = 'adminfit';
+VALUES ('Administrador', 'GymFit', '00000001', '1990-01-01', 'administraciongymfit@gmail.com', '$2b$10$k75kWnm0MfOZ7CwLDkRlGuh5aB4O.AdAkJFdCajL2et3VCQhplzDG', 'Administrador general del sistema.', 'Premium', 'admin', true)
+ON DUPLICATE KEY UPDATE rol = 'admin', password = '$2b$10$k75kWnm0MfOZ7CwLDkRlGuh5aB4O.AdAkJFdCajL2et3VCQhplzDG';
 
 -- 9. Crear la tabla de precios programados de cuotas
 CREATE TABLE IF NOT EXISTS precios_cuota (

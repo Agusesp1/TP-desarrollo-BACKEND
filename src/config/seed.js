@@ -8,6 +8,7 @@ const Reserva = require('../models/reserva.model');
 const PrecioCuota = require('../models/precioCuota.model');
 const Cuota = require('../models/cuota.model');
 const cuotaService = require('../services/cuota.service');
+const { isBcryptHash, hashPassword } = require('../utils/hash.util');
 const sequelize = require('./db');
 
 const inicializarDatos = async () => {
@@ -37,7 +38,8 @@ const inicializarDatos = async () => {
       });
       console.log(`✅ Usuario Administrador pre-cargado con éxito (${adminEmail})`);
     } else {
-      if (adminExistente.rol !== 'admin' || adminExistente.password !== adminPassword) {
+      const passwordValida = await adminExistente.validarPassword(adminPassword);
+      if (adminExistente.rol !== 'admin' || !passwordValida) {
         await adminExistente.update({
           rol: 'admin',
           password: adminPassword,
@@ -358,6 +360,20 @@ const inicializarDatos = async () => {
       }
     }
     console.log('✅ Cuotas verificadas e inicializadas únicamente para clientes (socios).');
+
+    // 9. Encriptar con bcrypt cualquier contraseña existente en la BD que aún esté en texto plano
+    const todosLosUsuarios = await Usuario.findAll();
+    let contrasenasMigradas = 0;
+    for (const usuario of todosLosUsuarios) {
+      if (usuario.password && !isBcryptHash(usuario.password)) {
+        usuario.password = await hashPassword(usuario.password);
+        await usuario.save();
+        contrasenasMigradas++;
+      }
+    }
+    if (contrasenasMigradas > 0) {
+      console.log(`🔒 Se encriptaron con éxito las contraseñas de ${contrasenasMigradas} usuario(s) existentes en la base de datos.`);
+    }
 
   } catch (error) {
     console.warn('⚠️ Error durante la inicialización de datos de seed:', error.message);

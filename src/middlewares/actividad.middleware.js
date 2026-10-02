@@ -12,6 +12,15 @@ const validarIdActividad = (req, res, next) => {
   next();
 };
 
+// Expresión regular para validar formato HH:MM (24 horas: 00:00 a 23:59)
+const formatoHoraRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+const convertirHoraAMinutos = (horaStr) => {
+  if (!horaStr || typeof horaStr !== 'string' || !formatoHoraRegex.test(horaStr.trim())) return null;
+  const [h, m] = horaStr.trim().split(':').map(Number);
+  return h * 60 + m;
+};
+
 // Validar creación de actividad
 const validarCrearActividad = (req, res, next) => {
   const { nombre, duracion, cupo, descripcion, dia_semana, horarioInicio, horaFin } = req.body;
@@ -65,18 +74,27 @@ const validarCrearActividad = (req, res, next) => {
     });
   }
 
-  // 6. Validar horarios
-  if (typeof horarioInicio !== 'string' || horarioInicio.trim().length === 0) {
+  // 6. Validar horarios reales y orden cronológico
+  if (typeof horarioInicio !== 'string' || !formatoHoraRegex.test(horarioInicio.trim())) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'Debe ingresar el horario de inicio'
+      mensaje: 'El horario de inicio debe ser una hora válida en formato HH:MM (entre 00:00 y 23:59)'
     });
   }
 
-  if (typeof horaFin !== 'string' || horaFin.trim().length === 0) {
+  if (typeof horaFin !== 'string' || !formatoHoraRegex.test(horaFin.trim())) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'Debe ingresar el horario de fin'
+      mensaje: 'El horario de fin debe ser una hora válida en formato HH:MM (entre 00:00 y 23:59)'
+    });
+  }
+
+  const inicioMin = convertirHoraAMinutos(horarioInicio);
+  const finMin = convertirHoraAMinutos(horaFin);
+  if (finMin <= inicioMin) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'El horario de fin debe ser posterior al horario de inicio'
     });
   }
 
@@ -140,19 +158,30 @@ const validarActualizarActividad = (req, res, next) => {
   }
 
   if (horarioInicio !== undefined) {
-    if (typeof horarioInicio !== 'string' || horarioInicio.trim().length === 0) {
+    if (typeof horarioInicio !== 'string' || !formatoHoraRegex.test(horarioInicio.trim())) {
       return res.status(400).json({
         exito: false,
-        mensaje: 'El horario de inicio no puede estar vacío'
+        mensaje: 'El horario de inicio debe ser una hora válida en formato HH:MM (entre 00:00 y 23:59)'
       });
     }
   }
 
   if (horaFin !== undefined) {
-    if (typeof horaFin !== 'string' || horaFin.trim().length === 0) {
+    if (typeof horaFin !== 'string' || !formatoHoraRegex.test(horaFin.trim())) {
       return res.status(400).json({
         exito: false,
-        mensaje: 'El horario de fin no puede estar vacío'
+        mensaje: 'El horario de fin debe ser una hora válida en formato HH:MM (entre 00:00 y 23:59)'
+      });
+    }
+  }
+
+  if (horarioInicio !== undefined && horaFin !== undefined) {
+    const inicioMin = convertirHoraAMinutos(horarioInicio);
+    const finMin = convertirHoraAMinutos(horaFin);
+    if (finMin <= inicioMin) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El horario de fin debe ser posterior al horario de inicio'
       });
     }
   }

@@ -102,8 +102,9 @@ const login = async (req, res) => {
       });
     }
 
-    // 3. Verificar contraseña
-    if (usuario.password !== password) {
+    // 3. Verificar contraseña de forma segura (soporta bcrypt y migración transparente)
+    const esPasswordValida = await usuario.validarPassword(password);
+    if (!esPasswordValida) {
       return res.status(401).json({
         exito: false,
         mensaje: 'Usuario o contraseña inválido'

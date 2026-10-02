@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
+const { hashPassword, comparePassword, isBcryptHash } = require('../utils/hash.util');
 
 const Usuario = sequelize.define('Usuario', {
   id: {
@@ -58,7 +59,38 @@ const Usuario = sequelize.define('Usuario', {
   }
 }, {
   tableName: 'usuarios',
-  timestamps: false
+  timestamps: false,
+  hooks: {
+    beforeCreate: async (usuario) => {
+      if (usuario.password && !isBcryptHash(usuario.password)) {
+        usuario.password = await hashPassword(usuario.password);
+      }
+    },
+    beforeUpdate: async (usuario) => {
+      if (usuario.changed('password') && usuario.password && !isBcryptHash(usuario.password)) {
+        usuario.password = await hashPassword(usuario.password);
+      }
+    }
+  }
 });
 
+// Método de instancia para verificar contraseña con soporte para migración de texto plano a bcrypt
+Usuario.prototype.validarPassword = async function (plainPassword) {
+  if (!this.password || !plainPassword) return false;
+
+  if (isBcryptHash(this.password)) {
+    return await comparePassword(plainPassword, this.password);
+  }
+
+  // Retrocompatibilidad con contraseñas que hayan sido guardadas en texto plano
+  if (this.password === plainPassword) {
+    this.password = await hashPassword(plainPassword);
+    await this.save();
+    return true;
+  }
+
+  return false;
+};
+
 module.exports = Usuario;
+

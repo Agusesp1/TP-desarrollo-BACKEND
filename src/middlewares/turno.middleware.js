@@ -12,8 +12,14 @@ const validarIdTurno = (req, res, next) => {
   next();
 };
 
-// Expresión regular para validar formato HH:MM (24 horas)
+// Expresión regular para validar formato HH:MM (24 horas: 00:00 a 23:59)
 const formatoHoraRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+const convertirHoraAMinutos = (horaStr) => {
+  if (!horaStr || typeof horaStr !== 'string' || !formatoHoraRegex.test(horaStr.trim())) return null;
+  const [h, m] = horaStr.trim().split(':').map(Number);
+  return h * 60 + m;
+};
 
 // Validar creación de turno
 const validarCrearTurno = (req, res, next) => {
@@ -47,6 +53,15 @@ const validarCrearTurno = (req, res, next) => {
     return res.status(400).json({
       exito: false,
       mensaje: 'El horario de fin debe tener el formato HH:MM (ejemplo: 10:00)'
+    });
+  }
+
+  const inicioMin = convertirHoraAMinutos(horarioInicio);
+  const finMin = convertirHoraAMinutos(horaFin);
+  if (finMin <= inicioMin) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'El horario de fin debe ser posterior al horario de inicio'
     });
   }
 
@@ -99,6 +114,17 @@ const validarActualizarTurno = (req, res, next) => {
       exito: false,
       mensaje: 'El horario de fin debe tener el formato HH:MM (ejemplo: 10:00)'
     });
+  }
+
+  if (horarioInicio !== undefined && horaFin !== undefined) {
+    const inicioMin = convertirHoraAMinutos(horarioInicio);
+    const finMin = convertirHoraAMinutos(horaFin);
+    if (finMin <= inicioMin) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'El horario de fin debe ser posterior al horario de inicio'
+      });
+    }
   }
 
   if (dia_semana !== undefined && (typeof dia_semana !== 'string' || dia_semana.trim().length > 100)) {
