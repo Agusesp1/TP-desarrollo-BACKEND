@@ -1,26 +1,26 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
-const Sede = sequelize.define('Sede', {
+const Branch = sequelize.define('Branch', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  nombre: {
+  name: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
-  direccion: {
+  address: {
     type: DataTypes.STRING(200),
     allowNull: false
   },
-  ciudad: {
+  city: {
     type: DataTypes.STRING(100),
     allowNull: false,
     defaultValue: 'Córdoba'
   },
-  telefono: {
+  phone: {
     type: DataTypes.STRING(50),
     allowNull: true
   },
@@ -31,26 +31,26 @@ const Sede = sequelize.define('Sede', {
       isEmail: true
     }
   },
-  horario_apertura: {
+  opening_hours: {
     type: DataTypes.STRING(100),
     allowNull: false,
     defaultValue: 'Lunes a Viernes 07:00 a 23:00 - Sábados 08:00 a 20:00'
   },
-  horarios_dias: {
+  schedule_days: {
     type: DataTypes.JSON,
     allowNull: true
   },
-  capacidad: {
+  capacity: {
     type: DataTypes.INTEGER,
     defaultValue: 150
   },
-  estado: {
+  status: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
 }, {
-  tableName: 'sedes',
+  tableName: 'branches',
   timestamps: false
 });
 
-module.exports = Sede;
+module.exports = Branch;

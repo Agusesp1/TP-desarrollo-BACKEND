@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
-const { validarRegistro, validarLogin } = require('../middlewares/auth.middleware');
+const { validateRegistro, validateLogin } = require('../middlewares/auth.middleware');
 
-// Ruta para registrar un nuevo usuario con validación en middleware
-router.post('/registro', validarRegistro, authController.registro);
+// Route para registrar un nuevo user con validación en middleware
+router.post('/registro', validateRegistro, authController.registro);
 
-// Ruta para iniciar sesión con validación en middleware
-router.post('/login', validarLogin, authController.login);
+// Route para iniciar sesión con validación en middleware
+router.post('/login', validateLogin, authController.login);
 
 module.exports = router;

@@ -1,129 +1,129 @@
-const Usuario = require('../models/usuario.model');
+const User = require('../models/user.model');
 const emailService = require('../services/email.service');
-const cuotaService = require('../services/cuota.service');
+const quotaService = require('../services/quota.service');
 
-// Convertir fecha de DD/MM/YYYY a YYYY-MM-DD para MySQL DATE
-const formatearFechaParaMySQL = (fechaStr) => {
-  if (!fechaStr) return null;
-  if (fechaStr.includes('/')) {
-    const partes = fechaStr.split('/');
+// Convertir date de DD/MM/YYYY a YYYY-MM-DD para MySQL DATE
+const formatearFechaParaMySQL = (dateStr) => {
+  if (!dateStr) return null;
+  if (dateStr.includes('/')) {
+    const partes = dateStr.split('/');
     if (partes.length === 3) {
-      const [dia, mes, anio] = partes;
-      return `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+      const [day, month, year] = partes;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
   }
-  return fechaStr;
+  return dateStr;
 };
 
-// Controlador para el Registro de Usuario con Sequelize
+// Controller para el Registro de User con Sequelize
 const registro = async (req, res) => {
-  const { nombre, apellido, dni, fechaNac, email, password } = req.body;
+  const { name, lastname, dni, dateNac, email, password } = req.body;
 
   try {
     // 1. Verificar si el email ya existe
-    const usuarioExistenteEmail = await Usuario.findOne({ where: { email } });
-    if (usuarioExistenteEmail) {
+    const userExistenteEmail = await User.findOne({ where: { email } });
+    if (userExistenteEmail) {
       return res.status(409).json({
-        exito: false,
-        mensaje: 'El correo electrónico ya se encuentra registrado'
+        success: false,
+        message: 'El correo electrónico ya se encuentra registrado'
       });
     }
 
     // 2. Verificar si el DNI ya existe
-    const usuarioExistenteDni = await Usuario.findOne({ where: { dni } });
-    if (usuarioExistenteDni) {
+    const userExistenteDni = await User.findOne({ where: { dni } });
+    if (userExistenteDni) {
       return res.status(409).json({
-        exito: false,
-        mensaje: 'El DNI ya se encuentra registrado'
+        success: false,
+        message: 'El DNI ya se encuentra registrado'
       });
     }
 
-    // 3. Crear el usuario en la base de datos usando Sequelize
-    const fechaFormateada = formatearFechaParaMySQL(fechaNac);
-    const nuevoUsuario = await Usuario.create({
-      nombre,
-      apellido,
+    // 3. Crear el user en la base de datos usando Sequelize
+    const dateFormateada = formatearFechaParaMySQL(dateNac);
+    const nuevoUsuario = await User.create({
+      name,
+      lastname,
       dni,
-      fecha_nacimiento: fechaFormateada,
+      birth_date: dateFormateada,
       email,
       password
     });
 
-    // 4. Generar cuotas iniciales automáticamente para los próximos 5 meses ÚNICAMENTE si es cliente/usuario
-    if (nuevoUsuario.rol === 'usuario') {
+    // 4. Generar quotas iniciales automáticamente para los próximos 5 meses ÚNICAMENTE si es cliente/user
+    if (nuevoUsuario.role === 'user') {
       try {
-        await cuotaService.generarCuotasIniciales(nuevoUsuario.id, nuevoUsuario.fecha_inscripcion || new Date());
-      } catch (cuotaErr) {
-        console.warn('⚠️ No se pudieron generar las cuotas iniciales automáticamente:', cuotaErr.message || cuotaErr);
+        await quotaService.generateInitialQuotas(nuevoUsuario.id, nuevoUsuario.enrollment_date || new Date());
+      } catch (quotaErr) {
+        console.warn('⚠️ No se pudieron generar las quotas iniciales automáticamente:', quotaErr.message || quotaErr);
       }
     }
 
     // 5. Enviar correo de bienvenida (asíncrono, sin bloquear la respuesta)
-    emailService.enviarMailBienvenida({ nombre, email }).catch((err) => {
+    emailService.enviarMailBienvenida({ name, email }).catch((err) => {
       console.warn('⚠️ No se pudo despachar el correo de bienvenida:', err.message || err);
     });
 
     const { password: _, ...datosUsuario } = nuevoUsuario.toJSON();
 
     return res.status(201).json({
-      exito: true,
-      mensaje: 'Usuario registrado exitosamente',
-      usuario: datosUsuario
+      success: true,
+      message: 'User registrado exitosamente',
+      user: datosUsuario
     });
   } catch (error) {
-    console.error('Error en el controlador de registro:', error);
+    console.error('Error en el controller de registro:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error interno del servidor al registrar el usuario',
+      success: false,
+      message: 'Error interno del servidor al registrar el user',
       detalles: error.message
     });
   }
 };
 
-// Controlador para el Inicio de Sesión (Login) con Sequelize
+// Controller para el Home de Sesión (Login) con Sequelize
 const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 1. Buscar usuario por email con Sequelize
-    const usuario = await Usuario.findOne({ where: { email } });
-    if (!usuario) {
+    // 1. Buscar user por email con Sequelize
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
       return res.status(401).json({
-        exito: false,
-        mensaje: 'Usuario o contraseña inválido'
+        success: false,
+        message: 'User o contraseña inválido'
       });
     }
 
     // 2. Verificar si la cuenta está activa (baja lógica)
-    if (!usuario.estado) {
+    if (!user.status) {
       return res.status(403).json({
-        exito: false,
-        mensaje: 'Esta cuenta ha sido dada de baja o se encuentra desactivada'
+        success: false,
+        message: 'Esta cuenta ha sido dada de baja o se encuentra desactivada'
       });
     }
 
     // 3. Verificar contraseña de forma segura (soporta bcrypt y migración transparente)
-    const esPasswordValida = await usuario.validarPassword(password);
+    const esPasswordValida = await user.validatePassword(password);
     if (!esPasswordValida) {
       return res.status(401).json({
-        exito: false,
-        mensaje: 'Usuario o contraseña inválido'
+        success: false,
+        message: 'User o contraseña inválido'
       });
     }
 
     // 4. Excluir contraseña de la respuesta
-    const { password: _, ...datosUsuario } = usuario.toJSON();
+    const { password: _, ...datosUsuario } = user.toJSON();
 
     return res.json({
-      exito: true,
-      mensaje: 'Inicio de sesión exitoso',
-      usuario: datosUsuario
+      success: true,
+      message: 'Home de sesión exitoso',
+      user: datosUsuario
     });
   } catch (error) {
-    console.error('Error en el controlador de login:', error);
+    console.error('Error en el controller de login:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error interno del servidor al iniciar sesión',
+      success: false,
+      message: 'Error interno del servidor al iniciar sesión',
       detalles: error.message
     });
   }

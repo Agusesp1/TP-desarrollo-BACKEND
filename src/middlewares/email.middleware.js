@@ -1,19 +1,19 @@
-// Middleware para validar datos del formulario de contacto
-const validarContacto = (req, res, next) => {
-  const { nombre, email, mensaje } = req.body;
+// Middleware para validate datos del formulario de contacto
+const validateContacto = (req, res, next) => {
+  const { name, email, message } = req.body;
 
-  if (!nombre || !email || !mensaje) {
+  if (!name || !email || !message) {
     return res.status(400).json({
-      exito: false,
-      mensaje: 'Nombre, email y mensaje son requeridos'
+      success: false,
+      message: 'Name, email y message son requeridos'
     });
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({
-      exito: false,
-      mensaje: 'El formato del correo electrónico no es válido'
+      success: false,
+      message: 'El formato del correo electrónico no es válido'
     });
   }
 
@@ -21,5 +21,5 @@ const validarContacto = (req, res, next) => {
 };
 
 module.exports = {
-  validarContacto
+  validateContacto
 };

@@ -1,22 +1,22 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-const Usuario = require('./usuario.model');
+const User = require('./user.model');
 
-const Cuota = sequelize.define('Cuota', {
+const Quota = sequelize.define('Quota', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  usuario_id: {
+  user_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: Usuario,
+      model: User,
       key: 'id'
     }
   },
-  numero_cuota: {
+  numero_quota: {
     type: DataTypes.INTEGER,
     allowNull: false
   },
@@ -24,36 +24,36 @@ const Cuota = sequelize.define('Cuota', {
     type: DataTypes.STRING(50),
     allowNull: false
   },
-  monto: {
+  amount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
-  fecha_emision: {
+  date_emision: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  fecha_vencimiento: {
+  date_vencimiento: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  fecha_limite_pago: {
+  date_limite_payment: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  estado: {
+  status: {
     type: DataTypes.ENUM('pendiente', 'en demora', 'no pagado', 'pagado'),
     allowNull: false,
     defaultValue: 'pendiente'
   },
-  fecha_pago: {
+  date_payment: {
     type: DataTypes.DATE,
     allowNull: true
   },
-  metodo_pago: {
+  metodo_payment: {
     type: DataTypes.STRING(50),
     allowNull: true
   },
-  comprobante: {
+  receipt: {
     type: DataTypes.STRING(100),
     allowNull: true
   },
@@ -70,12 +70,12 @@ const Cuota = sequelize.define('Cuota', {
     allowNull: true
   }
 }, {
-  tableName: 'cuotas',
+  tableName: 'quotas',
   timestamps: false
 });
 
 // Relaciones
-Usuario.hasMany(Cuota, { foreignKey: 'usuario_id', as: 'cuotas' });
-Cuota.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+User.hasMany(Quota, { foreignKey: 'user_id', as: 'quotas' });
+Quota.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-module.exports = Cuota;
+module.exports = Quota;

@@ -1,18 +1,18 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-const Sede = require('./sede.model');
+const Branch = require('./branch.model');
 
-const Profesor = sequelize.define('Profesor', {
+const Teacher = sequelize.define('Teacher', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  nombre: {
+  name: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
-  apellido: {
+  lastname: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
@@ -29,42 +29,42 @@ const Profesor = sequelize.define('Profesor', {
       isEmail: true
     }
   },
-  telefono: {
+  phone: {
     type: DataTypes.STRING(50),
     allowNull: true
   },
-  especialidad: {
+  specialty: {
     type: DataTypes.STRING(100),
     allowNull: false,
     defaultValue: 'Musculación'
   },
-  turno: {
+  shift: {
     type: DataTypes.ENUM('Mañana', 'Tarde', 'Noche', 'Rotativo'),
     defaultValue: 'Mañana'
   },
-  sede_id: {
+  branch_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: Sede,
+      model: Branch,
       key: 'id'
     }
   },
-  estado: {
+  status: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
-  fecha_alta: {
+  date_alta: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'profesores',
+  tableName: 'teachers',
   timestamps: false
 });
 
 // Relaciones
-Sede.hasMany(Profesor, { foreignKey: 'sede_id', as: 'profesores' });
-Profesor.belongsTo(Sede, { foreignKey: 'sede_id', as: 'sede' });
+Branch.hasMany(Teacher, { foreignKey: 'branch_id', as: 'teachers' });
+Teacher.belongsTo(Branch, { foreignKey: 'branch_id', as: 'branch' });
 
-module.exports = Profesor;
+module.exports = Teacher;

@@ -1,35 +1,35 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
-const PrecioCuota = sequelize.define('PrecioCuota', {
+const PriceCuota = sequelize.define('PriceCuota', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  monto: {
+  amount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
-  fecha_desde: {
+  start_date: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  descripcion: {
+  description: {
     type: DataTypes.STRING(255),
     allowNull: true
   },
-  activo: {
+  active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
-  fecha_creacion: {
+  date_creacion: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'precios_cuota',
+  tableName: 'prices_quota',
   timestamps: false
 });
 
-module.exports = PrecioCuota;
+module.exports = PriceCuota;

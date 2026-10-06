@@ -1,35 +1,35 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-const Usuario = require('./usuario.model');
-const Turno = require('./turno.model');
+const User = require('./user.model');
+const Shift = require('./shift.model');
 
-const Reserva = sequelize.define('Reserva', {
+const Reservation = sequelize.define('Reservation', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  usuario_id: {
+  user_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: Usuario,
+      model: User,
       key: 'id'
     }
   },
-  turno_id: {
+  shift_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: Turno,
+      model: Shift,
       key: 'id'
     }
   },
-  fecha: {
+  date: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
-  estado: {
+  status: {
     type: DataTypes.STRING(20),
     allowNull: false,
     defaultValue: 'confirmada' // 'confirmada' | 'cancelada'
@@ -39,15 +39,15 @@ const Reserva = sequelize.define('Reserva', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'reservas',
+  tableName: 'reservations',
   timestamps: false
 });
 
 // Relaciones
-Usuario.hasMany(Reserva, { foreignKey: 'usuario_id', as: 'reservas' });
-Reserva.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+User.hasMany(Reservation, { foreignKey: 'user_id', as: 'reservations' });
+Reservation.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-Turno.hasMany(Reserva, { foreignKey: 'turno_id', as: 'reservas' });
-Reserva.belongsTo(Turno, { foreignKey: 'turno_id', as: 'turno' });
+Shift.hasMany(Reservation, { foreignKey: 'shift_id', as: 'reservations' });
+Reservation.belongsTo(Shift, { foreignKey: 'shift_id', as: 'shift' });
 
-module.exports = Reserva;
+module.exports = Reservation;

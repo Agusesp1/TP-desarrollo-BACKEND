@@ -1,384 +1,384 @@
 const { Op } = require('sequelize');
-const Usuario = require('../models/usuario.model');
-const Sede = require('../models/sede.model');
-const Profesor = require('../models/profesor.model');
-const Actividad = require('../models/actividad.model');
-const Turno = require('../models/turno.model');
-const Reserva = require('../models/reserva.model');
-const PrecioCuota = require('../models/precioCuota.model');
-const Cuota = require('../models/cuota.model');
-const cuotaService = require('../services/cuota.service');
+const User = require('../models/user.model');
+const Branch = require('../models/branch.model');
+const Teacher = require('../models/teacher.model');
+const Activity = require('../models/activity.model');
+const Shift = require('../models/shift.model');
+const Reservation = require('../models/reservation.model');
+const PriceCuota = require('../models/priceCuota.model');
+const Quota = require('../models/quota.model');
+const quotaService = require('../services/quota.service');
 const { isBcryptHash, hashPassword } = require('../utils/hash.util');
 const sequelize = require('./db');
 
-const inicializarDatos = async () => {
+const initializeData = async () => {
   try {
     // Sincronizar modelos con la base de datos (crea o actualiza tablas según sea necesario)
     await sequelize.sync();
     try {
-      await sequelize.query('ALTER TABLE sedes ADD COLUMN horarios_dias JSON;');
-      console.log('✅ Columna horarios_dias agregada a la tabla sedes.');
+      await sequelize.query('ALTER TABLE branches ADD COLUMN schedule_days JSON;');
+      console.log('✅ Columna schedule_days agregada a la tabla branches.');
     } catch (error) {
       // Ignorar si la columna ya existe
     }
     console.log('📦 Base de datos sincronizada correctamente.');
 
-    // 1. Crear o asegurar usuario Administrador
+    // 1. Crear o asegurar user Administrador
     const adminEmail = process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'adminfit';
 
-    const adminExistente = await Usuario.findOne({ where: { email: adminEmail } });
+    const existingAdmin = await User.findOne({ where: { email: adminEmail } });
 
-    if (!adminExistente) {
-      await Usuario.create({
-        nombre: 'Administrador',
-        apellido: 'GymFit',
+    if (!existingAdmin) {
+      await User.create({
+        name: 'Administrador',
+        lastname: 'GymFit',
         dni: '00000001',
-        fecha_nacimiento: '1990-01-01',
+        birth_date: '1990-01-01',
         email: adminEmail,
         password: adminPassword,
         bio: 'Administrador general de la plataforma FitApp Premium.',
-        categoria: 'Premium',
-        rol: 'admin',
-        estado: true
+        category: 'Premium',
+        role: 'admin',
+        status: true
       });
-      console.log(`✅ Usuario Administrador pre-cargado con éxito (${adminEmail})`);
+      console.log(`✅ User Administrador pre-cargado con éxito (${adminEmail})`);
     } else {
-      const passwordValida = await adminExistente.validarPassword(adminPassword);
-      if (adminExistente.rol !== 'admin' || !passwordValida) {
-        await adminExistente.update({
-          rol: 'admin',
+      const validPassword = await existingAdmin.validatePassword(adminPassword);
+      if (existingAdmin.role !== 'admin' || !validPassword) {
+        await existingAdmin.update({
+          role: 'admin',
           password: adminPassword,
-          estado: true
+          status: true
         });
-        console.log('✅ Usuario Administrador actualizado a rol admin.');
+        console.log('✅ User Administrador actualizado a role admin.');
       }
     }
 
-    // 2. Pre-cargar Sedes iniciales si no hay ninguna
-    const cantidadSedes = await Sede.count();
-    let sedes = await Sede.findAll();
-    if (cantidadSedes === 0) {
-      sedes = await Sede.bulkCreate([
+    // 2. Pre-cargar Branches iniciales si no hay ninguna
+    const amountBranches = await Branch.count();
+    let branches = await Branch.findAll();
+    if (amountBranches === 0) {
+      branches = await Branch.bulkCreate([
         {
-          nombre: 'FitApp Sede Centro',
-          direccion: 'Av. Colón 850',
-          ciudad: 'Córdoba Capital',
-          telefono: '+54 9 351 445-1234',
+          name: 'FitApp Branch Centro',
+          address: 'Av. Colón 850',
+          city: 'Córdoba Capital',
+          phone: '+54 9 351 445-1234',
           email: 'centro@gymfit.com',
-          horario_apertura: '07:00 a 23:00 hs',
-          capacidad: 250,
-          estado: true
+          opening_hours: '07:00 a 23:00 hs',
+          capacity: 250,
+          status: true
         },
         {
-          nombre: 'FitApp Sede Nueva Córdoba',
-          direccion: 'Av. Hipólito Yrigoyen 320',
-          ciudad: 'Córdoba Capital',
-          telefono: '+54 9 351 556-7890',
+          name: 'FitApp Branch Nueva Córdoba',
+          address: 'Av. Hipólito Yrigoyen 320',
+          city: 'Córdoba Capital',
+          phone: '+54 9 351 556-7890',
           email: 'nuevacordoba@gymfit.com',
-          horario_apertura: '06:30 a 23:30 hs',
-          capacidad: 300,
-          estado: true
+          opening_hours: '06:30 a 23:30 hs',
+          capacity: 300,
+          status: true
         },
         {
-          nombre: 'FitApp Sede Cerro de las Rosas',
-          direccion: 'Av. Rafael Núñez 4200',
-          ciudad: 'Córdoba Capital',
-          telefono: '+54 9 351 667-4321',
+          name: 'FitApp Branch Cerro de las Rosas',
+          address: 'Av. Rafael Núñez 4200',
+          city: 'Córdoba Capital',
+          phone: '+54 9 351 667-4321',
           email: 'cerro@gymfit.com',
-          horario_apertura: '07:00 a 22:30 hs',
-          capacidad: 200,
-          estado: true
+          opening_hours: '07:00 a 22:30 hs',
+          capacity: 200,
+          status: true
         }
       ]);
-      console.log('✅ Sedes iniciales pre-cargadas con éxito.');
+      console.log('✅ Branches iniciales pre-cargadas con éxito.');
     }
 
-    // 3. Pre-cargar Profesores iniciales
-    const cantidadProfesores = await Profesor.count();
-    let profesores = await Profesor.findAll();
-    if (cantidadProfesores === 0 && sedes.length > 0) {
-      profesores = await Profesor.bulkCreate([
+    // 3. Pre-cargar Teachers iniciales
+    const amountTeachers = await Teacher.count();
+    let teachers = await Teacher.findAll();
+    if (amountTeachers === 0 && branches.length > 0) {
+      teachers = await Teacher.bulkCreate([
         {
-          nombre: 'Rodrigo',
-          apellido: 'González',
+          name: 'Rodrigo',
+          lastname: 'González',
           dni: '38123456',
           email: 'rodrigo.gonzalez@gymfit.com',
-          telefono: '+54 9 351 611-2233',
-          especialidad: 'Musculación & Hipertrofia',
-          turno: 'Mañana',
-          sede_id: sedes[0].id,
-          estado: true
+          phone: '+54 9 351 611-2233',
+          specialty: 'Musculación & Hipertrofia',
+          shift: 'Mañana',
+          branch_id: branches[0].id,
+          status: true
         },
         {
-          nombre: 'Luciana',
-          apellido: 'Martínez',
+          name: 'Luciana',
+          lastname: 'Martínez',
           dni: '39456789',
           email: 'luciana.martinez@gymfit.com',
-          telefono: '+54 9 351 622-3344',
-          especialidad: 'Crossfit & Funcional',
-          turno: 'Tarde',
-          sede_id: sedes[1].id,
-          estado: true
+          phone: '+54 9 351 622-3344',
+          specialty: 'Crossfit & Funcional',
+          shift: 'Tarde',
+          branch_id: branches[1].id,
+          status: true
         },
         {
-          nombre: 'Matías',
-          apellido: 'Fernández',
+          name: 'Matías',
+          lastname: 'Fernández',
           dni: '37890123',
           email: 'matias.fernandez@gymfit.com',
-          telefono: '+54 9 351 633-4455',
-          especialidad: 'Spinning & Cardio',
-          turno: 'Noche',
-          sede_id: sedes[2].id,
-          estado: true
+          phone: '+54 9 351 633-4455',
+          specialty: 'Spinning & Cardio',
+          shift: 'Noche',
+          branch_id: branches[2].id,
+          status: true
         },
         {
-          nombre: 'Camila',
-          apellido: 'Benítez',
+          name: 'Camila',
+          lastname: 'Benítez',
           dni: '40112233',
           email: 'camila.benitez@gymfit.com',
-          telefono: '+54 9 351 644-5566',
-          especialidad: 'Yoga & Pilates',
-          turno: 'Mañana',
-          sede_id: sedes[0].id,
-          estado: true
+          phone: '+54 9 351 644-5566',
+          specialty: 'Yoga & Pilates',
+          shift: 'Mañana',
+          branch_id: branches[0].id,
+          status: true
         }
       ]);
-      console.log('✅ Profesores iniciales pre-cargados con éxito.');
+      console.log('✅ Teachers iniciales pre-cargados con éxito.');
     }
 
-    // Asegurar que todos los profesores tengan su cuenta de Usuario con rol 'profesor' para poder ingresar
-    for (const prof of profesores) {
-      const userExistente = await Usuario.findOne({ where: { email: prof.email } });
+    // Asegurar que todos los teachers tengan su cuenta de User con role 'teacher' para poder ingresar
+    for (const teacher of teachers) {
+      const userExistente = await User.findOne({ where: { email: teacher.email } });
       if (!userExistente) {
-        await Usuario.create({
-          nombre: prof.nombre,
-          apellido: prof.apellido,
-          dni: prof.dni,
-          fecha_nacimiento: '1992-05-15',
-          email: prof.email,
-          password: prof.dni, // Contraseña por defecto es su DNI
-          rol: 'profesor',
-          bio: `Profesor oficial de ${prof.especialidad}.`,
-          estado: true
+        await User.create({
+          name: teacher.name,
+          lastname: teacher.lastname,
+          dni: teacher.dni,
+          birth_date: '1992-05-15',
+          email: teacher.email,
+          password: teacher.dni, // Contraseña por defecto es su DNI
+          role: 'teacher',
+          bio: `Teacher oficial de ${teacher.specialty}.`,
+          status: true
         });
-      } else if (userExistente.rol !== 'profesor') {
-        await userExistente.update({ rol: 'profesor' });
+      } else if (userExistente.role !== 'teacher') {
+        await userExistente.update({ role: 'teacher' });
       }
     }
 
-    // 4. Pre-cargar Actividades (incluyendo Musculación)
-    let actMusculacion = await Actividad.findOne({
-      where: { nombre: 'Musculación & Sala de Pesas' }
+    // 4. Pre-cargar Activities (incluyendo Musculación)
+    let actMuscle = await Activity.findOne({
+      where: { name: 'Musculación & Sala de Pesas' }
     });
 
-    if (!actMusculacion) {
-      actMusculacion = await Actividad.create({
-        nombre: 'Musculación & Sala de Pesas',
-        duracion: 60,
-        cupo: 40,
-        descripcion: 'Entrenamiento libre y guiado de fuerza, hipertrofia y acondicionamiento físico con pesas y máquinas.',
-        sede_id: sedes[0] ? sedes[0].id : null,
-        estado: true
+    if (!actMuscle) {
+      actMuscle = await Activity.create({
+        name: 'Musculación & Sala de Pesas',
+        duration: 60,
+        capacity: 40,
+        description: 'Training libre y guiado de fuerza, hipertrofia y acondicionamiento físico con pesas y máquinas.',
+        branch_id: branches[0] ? branches[0].id : null,
+        status: true
       });
-      console.log('✅ Actividad Musculación & Sala de Pesas creada con éxito.');
-    } else if (!actMusculacion.sede_id && sedes[0]) {
-      await actMusculacion.update({ sede_id: sedes[0].id });
+      console.log('✅ Activity Musculación & Sala de Pesas creada con éxito.');
+    } else if (!actMuscle.branch_id && branches[0]) {
+      await actMuscle.update({ branch_id: branches[0].id });
     }
 
-    const cantidadActividades = await Actividad.count();
-    if (cantidadActividades <= 1) {
-      await Actividad.bulkCreate([
+    const amountActivities = await Activity.count();
+    if (amountActivities <= 1) {
+      await Activity.bulkCreate([
         {
-          nombre: 'Pilates Reformer',
-          duracion: 50,
-          cupo: 12,
-          descripcion: 'Entrenamiento de fuerza, control postural y flexibilidad en camillas.',
-          sede_id: sedes[0] ? sedes[0].id : null,
-          estado: true
+          name: 'Pilates Reformer',
+          duration: 50,
+          capacity: 12,
+          description: 'Training de fuerza, control postural y flexibilidad en camillas.',
+          branch_id: branches[0] ? branches[0].id : null,
+          status: true
         },
         {
-          nombre: 'Zumba Fitness',
-          duracion: 60,
-          cupo: 30,
-          descripcion: 'Clase dinámica de baile y cardio al ritmo de la mejor música latina.',
-          sede_id: sedes[1] ? sedes[1].id : null,
-          estado: true
+          name: 'Zumba Fitness',
+          duration: 60,
+          capacity: 30,
+          description: 'Clase dinámica de baile y cardio al ritmo de la mejor música latina.',
+          branch_id: branches[1] ? branches[1].id : null,
+          status: true
         },
         {
-          nombre: 'Spinning Power',
-          duracion: 45,
-          cupo: 20,
-          descripcion: 'Ciclismo indoor de alta intensidad con intervalos y pendientes simuladas.',
-          sede_id: sedes[2] ? sedes[2].id : (sedes[0] ? sedes[0].id : null),
-          estado: true
+          name: 'Spinning Power',
+          duration: 45,
+          capacity: 20,
+          description: 'Ciclismo indoor de alta intensidad con intervalos y pendientes simuladas.',
+          branch_id: branches[2] ? branches[2].id : (branches[0] ? branches[0].id : null),
+          status: true
         },
         {
-          nombre: 'Funcional & Cross Training',
-          duracion: 60,
-          cupo: 25,
-          descripcion: 'Circuitos de fuerza metabólica, potencia y resistencia muscular.',
-          sede_id: sedes[1] ? sedes[1].id : null,
-          estado: true
+          name: 'Funcional & Cross Training',
+          duration: 60,
+          capacity: 25,
+          description: 'Circuitos de fuerza metabólica, potencia y resistencia muscular.',
+          branch_id: branches[1] ? branches[1].id : null,
+          status: true
         },
         {
-          nombre: 'Yoga Vinyasa',
-          duracion: 60,
-          cupo: 18,
-          descripcion: 'Secuencias dinámicas de respiración y posturas para calmar la mente y fortalecer el cuerpo.',
-          sede_id: sedes[0] ? sedes[0].id : null,
-          estado: true
+          name: 'Yoga Vinyasa',
+          duration: 60,
+          capacity: 18,
+          description: 'Secuencias dinámicas de respiración y posturas para calmar la mente y fortalecer el cuerpo.',
+          branch_id: branches[0] ? branches[0].id : null,
+          status: true
         }
       ]);
-      console.log('✅ Otras actividades iniciales pre-cargadas con éxito.');
+      console.log('✅ Otras activities iniciales pre-cargadas con éxito.');
     }
 
-    const actividades = await Actividad.findAll();
+    const activities = await Activity.findAll();
 
-    // Asignar profesores a cargo de las actividades si aún no tienen
-    for (const act of actividades) {
-      if (!act.profesor_id) {
-        if (act.nombre.includes('Musculación')) {
-          const p = profesores.find(pr => pr.especialidad.includes('Musculación')) || profesores[0];
-          if (p) await act.update({ profesor_id: p.id });
-        } else if (act.nombre.includes('Pilates') || act.nombre.includes('Yoga')) {
-          const p = profesores.find(pr => pr.nombre === 'Camila') || profesores[0];
-          if (p) await act.update({ profesor_id: p.id });
-        } else if (act.nombre.includes('Zumba') || act.nombre.includes('Funcional')) {
-          const p = profesores.find(pr => pr.nombre === 'Luciana') || profesores[1];
-          if (p) await act.update({ profesor_id: p.id });
-        } else if (act.nombre.includes('Spinning')) {
-          const p = profesores.find(pr => pr.nombre === 'Matías') || profesores[2];
-          if (p) await act.update({ profesor_id: p.id });
+    // Asignar teachers a cargo de las activities si aún no tienen
+    for (const act of activities) {
+      if (!act.teacher_id) {
+        if (act.name.includes('Musculación')) {
+          const p = teachers.find(pr => pr.specialty.includes('Musculación')) || teachers[0];
+          if (p) await act.update({ teacher_id: p.id });
+        } else if (act.name.includes('Pilates') || act.name.includes('Yoga')) {
+          const p = teachers.find(pr => pr.name === 'Camila') || teachers[0];
+          if (p) await act.update({ teacher_id: p.id });
+        } else if (act.name.includes('Zumba') || act.name.includes('Funcional')) {
+          const p = teachers.find(pr => pr.name === 'Luciana') || teachers[1];
+          if (p) await act.update({ teacher_id: p.id });
+        } else if (act.name.includes('Spinning')) {
+          const p = teachers.find(pr => pr.name === 'Matías') || teachers[2];
+          if (p) await act.update({ teacher_id: p.id });
         }
       }
     }
 
-    // 5. Pre-cargar Turnos organizados por combinación de días (Lun a Sáb) y rangos de 2hs
-    const cantidadTurnos = await Turno.count();
-    if (cantidadTurnos === 0) {
-      const profRodrigo = profesores.find(p => p.especialidad.includes('Musculación')) || profesores[0];
-      const profCamila = profesores.find(p => p.nombre === 'Camila') || profesores[0];
-      const profLuciana = profesores.find(p => p.nombre === 'Luciana') || profesores[1];
-      const profMatias = profesores.find(p => p.nombre === 'Matías') || profesores[2];
+    // 5. Pre-cargar Shifts organizados por combinación de días (Lun a Sáb) y rangos de 2hs
+    const amountShifts = await Shift.count();
+    if (amountShifts === 0) {
+      const profRodrigo = teachers.find(p => p.specialty.includes('Musculación')) || teachers[0];
+      const profCamila = teachers.find(p => p.name === 'Camila') || teachers[0];
+      const profLuciana = teachers.find(p => p.name === 'Luciana') || teachers[1];
+      const profMatias = teachers.find(p => p.name === 'Matías') || teachers[2];
 
-      const sede1 = sedes[0] ? sedes[0].id : null;
-      const sede2 = sedes[1] ? sedes[1].id : null;
-      const sede3 = sedes[2] ? sedes[2].id : null;
+      const branch1 = branches[0] ? branches[0].id : null;
+      const branch2 = branches[1] ? branches[1].id : null;
+      const branch3 = branches[2] ? branches[2].id : null;
 
-      const turnosIniciales = [
+      const initialShifts = [
         // Musculación & Sala de Pesas (Lunes a Sábado con bloques de 2 horas)
-        { actividad_id: actMusculacion.id, horarioInicio: '07:00', horaFin: '09:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '09:00', horaFin: '11:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '11:00', horaFin: '13:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '14:00', horaFin: '16:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '16:00', horaFin: '18:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '18:00', horaFin: '20:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '20:00', horaFin: '22:00', dia_semana: 'Lunes a Sábado', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
-        { actividad_id: actMusculacion.id, horarioInicio: '21:00', horaFin: '23:00', dia_semana: 'Lunes a Viernes', profesor_id: profRodrigo?.id, sede_id: sede1, estado: true },
+        { activity_id: actMuscle.id, startTime: '07:00', endTime: '09:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '09:00', endTime: '11:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '11:00', endTime: '13:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '14:00', endTime: '16:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '16:00', endTime: '18:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '18:00', endTime: '20:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '20:00', endTime: '22:00', dayOfWeek: 'Lunes a Sábado', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
+        { activity_id: actMuscle.id, startTime: '21:00', endTime: '23:00', dayOfWeek: 'Lunes a Viernes', teacher_id: profRodrigo?.id, branch_id: branch1, status: true },
       ];
 
-      // Turnos de otras actividades con rangos de 2hs y combinación de días
-      const actPilates = actividades.find(a => a.nombre.includes('Pilates'));
-      const actZumba = actividades.find(a => a.nombre.includes('Zumba'));
-      const actSpinning = actividades.find(a => a.nombre.includes('Spinning'));
-      const actFuncional = actividades.find(a => a.nombre.includes('Funcional'));
-      const actYoga = actividades.find(a => a.nombre.includes('Yoga'));
+      // Shifts de otras activities con rangos de 2hs y combinación de días
+      const actPilates = activities.find(a => a.name.includes('Pilates'));
+      const actZumba = activities.find(a => a.name.includes('Zumba'));
+      const actSpinning = activities.find(a => a.name.includes('Spinning'));
+      const actFuncional = activities.find(a => a.name.includes('Funcional'));
+      const actYoga = activities.find(a => a.name.includes('Yoga'));
 
       if (actPilates) {
-        turnosIniciales.push(
-          { actividad_id: actPilates.id, horarioInicio: '08:00', horaFin: '10:00', dia_semana: 'Lunes, Miércoles y Viernes', profesor_id: profCamila?.id, sede_id: sede1, estado: true },
-          { actividad_id: actPilates.id, horarioInicio: '16:00', horaFin: '18:00', dia_semana: 'Martes y Jueves', profesor_id: profCamila?.id, sede_id: sede1, estado: true }
+        initialShifts.push(
+          { activity_id: actPilates.id, startTime: '08:00', endTime: '10:00', dayOfWeek: 'Lunes, Miércoles y Viernes', teacher_id: profCamila?.id, branch_id: branch1, status: true },
+          { activity_id: actPilates.id, startTime: '16:00', endTime: '18:00', dayOfWeek: 'Martes y Jueves', teacher_id: profCamila?.id, branch_id: branch1, status: true }
         );
       }
 
       if (actZumba) {
-        turnosIniciales.push(
-          { actividad_id: actZumba.id, horarioInicio: '18:00', horaFin: '20:00', dia_semana: 'Martes y Jueves', profesor_id: profLuciana?.id, sede_id: sede2, estado: true },
-          { actividad_id: actZumba.id, horarioInicio: '10:00', horaFin: '12:00', dia_semana: 'Sábados', profesor_id: profLuciana?.id, sede_id: sede2, estado: true }
+        initialShifts.push(
+          { activity_id: actZumba.id, startTime: '18:00', endTime: '20:00', dayOfWeek: 'Martes y Jueves', teacher_id: profLuciana?.id, branch_id: branch2, status: true },
+          { activity_id: actZumba.id, startTime: '10:00', endTime: '12:00', dayOfWeek: 'Sábados', teacher_id: profLuciana?.id, branch_id: branch2, status: true }
         );
       }
 
       if (actSpinning) {
-        turnosIniciales.push(
-          { actividad_id: actSpinning.id, horarioInicio: '19:00', horaFin: '21:00', dia_semana: 'Lunes, Miércoles y Viernes', profesor_id: profMatias?.id, sede_id: sede3 || sede1, estado: true }
+        initialShifts.push(
+          { activity_id: actSpinning.id, startTime: '19:00', endTime: '21:00', dayOfWeek: 'Lunes, Miércoles y Viernes', teacher_id: profMatias?.id, branch_id: branch3 || branch1, status: true }
         );
       }
 
       if (actFuncional) {
-        turnosIniciales.push(
-          { actividad_id: actFuncional.id, horarioInicio: '08:00', horaFin: '10:00', dia_semana: 'Martes y Jueves', profesor_id: profLuciana?.id, sede_id: sede2, estado: true }
+        initialShifts.push(
+          { activity_id: actFuncional.id, startTime: '08:00', endTime: '10:00', dayOfWeek: 'Martes y Jueves', teacher_id: profLuciana?.id, branch_id: branch2, status: true }
         );
       }
 
       if (actYoga) {
-        turnosIniciales.push(
-          { actividad_id: actYoga.id, horarioInicio: '09:00', horaFin: '11:00', dia_semana: 'Sábados', profesor_id: profCamila?.id, sede_id: sede1, estado: true }
+        initialShifts.push(
+          { activity_id: actYoga.id, startTime: '09:00', endTime: '11:00', dayOfWeek: 'Sábados', teacher_id: profCamila?.id, branch_id: branch1, status: true }
         );
       }
 
-      await Turno.bulkCreate(turnosIniciales);
-      console.log(`✅ ${turnosIniciales.length} turnos configurados con combinaciones de días (Lun a Sáb) y rangos de 2hs creados con éxito.`);
+      await Shift.bulkCreate(initialShifts);
+      console.log(`✅ ${initialShifts.length} shifts configurados con combinaciones de días (Lun a Sáb) y rangos de 2hs creados con éxito.`);
     }
 
-    // 6. Pre-cargar PrecioCuota base si no existe
-    const cantidadPrecios = await PrecioCuota.count();
-    if (cantidadPrecios === 0) {
-      await PrecioCuota.create({
-        monto: 18000.00,
-        fecha_desde: '2026-01-01',
-        descripcion: 'Precio base de suscripción mensual 2026',
-        activo: true
+    // 6. Pre-cargar PriceCuota base si no existe
+    const amountPrices = await PriceCuota.count();
+    if (amountPrices === 0) {
+      await PriceCuota.create({
+        amount: 18000.00,
+        start_date: '2026-01-01',
+        description: 'Price base de suscripción mensual 2026',
+        active: true
       });
-      console.log('✅ Precio de cuota inicial ($18.000) configurado con éxito.');
+      console.log('✅ Price de quota inicial ($18.000) configurado con éxito.');
     }
 
-    // 7. Eliminar cualquier cuota que pudiera existir para usuarios cuyo rol !== 'usuario'
-    const usuariosNoClientes = await Usuario.findAll({
+    // 7. Eliminar cualquier quota que pudiera existir para users cuyo role !== 'user'
+    const usersNotMembers = await User.findAll({
       where: {
-        rol: { [Op.ne]: 'usuario' }
+        role: { [Op.ne]: 'user' }
       }
     });
 
-    if (usuariosNoClientes.length > 0) {
-      const idsNoClientes = usuariosNoClientes.map((u) => u.id);
-      const cuotasEliminadas = await Cuota.destroy({
+    if (usersNotMembers.length > 0) {
+      const idsNotMembers = usersNotMembers.map((u) => u.id);
+      const deletedQuotas = await Quota.destroy({
         where: {
-          usuario_id: { [Op.in]: idsNoClientes }
+          user_id: { [Op.in]: idsNotMembers }
         }
       });
-      if (cuotasEliminadas > 0) {
-        console.log(`🧹 Se eliminaron ${cuotasEliminadas} cuotas asignadas a usuarios no clientes (administradores o profesores).`);
+      if (deletedQuotas > 0) {
+        console.log(`🧹 Se eliminaron ${deletedQuotas} quotas asignadas a users no clients (administradores o teachers).`);
       }
     }
 
-    // 8. Solo generar cuotas iniciales para usuarios con rol === 'usuario'
-    const clientes = await Usuario.findAll({
-      where: { rol: 'usuario' }
+    // 8. Solo generar quotas iniciales para users con role === 'user'
+    const clients = await User.findAll({
+      where: { role: 'user' }
     });
-    for (const u of clientes) {
-      const cantCuotas = await Cuota.count({ where: { usuario_id: u.id } });
-      if (cantCuotas === 0) {
-        // Usar su fecha_inscripcion o fecha actual/base
-        await cuotaService.generarCuotasIniciales(u.id, u.fecha_inscripcion || new Date());
+    for (const u of clients) {
+      const amountQuotas = await Quota.count({ where: { user_id: u.id } });
+      if (amountQuotas === 0) {
+        // Usar su enrollment_date o date actual/base
+        await quotaService.generateInitialQuotas(u.id, u.enrollment_date || new Date());
       } else {
-        await cuotaService.actualizarEstadosCuotas(u.id);
+        await quotaService.updateQuotasStatuses(u.id);
       }
     }
-    console.log('✅ Cuotas verificadas e inicializadas únicamente para clientes (socios).');
+    console.log('✅ Quotas verificadas e inicializadas únicamente para clients (members).');
 
     // 9. Encriptar con bcrypt cualquier contraseña existente en la BD que aún esté en texto plano
-    const todosLosUsuarios = await Usuario.findAll();
-    let contrasenasMigradas = 0;
-    for (const usuario of todosLosUsuarios) {
-      if (usuario.password && !isBcryptHash(usuario.password)) {
-        usuario.password = await hashPassword(usuario.password);
-        await usuario.save();
-        contrasenasMigradas++;
+    const allUsers = await User.findAll();
+    let migratedPasswords = 0;
+    for (const user of allUsers) {
+      if (user.password && !isBcryptHash(user.password)) {
+        user.password = await hashPassword(user.password);
+        await user.save();
+        migratedPasswords++;
       }
     }
-    if (contrasenasMigradas > 0) {
-      console.log(`🔒 Se encriptaron con éxito las contraseñas de ${contrasenasMigradas} usuario(s) existentes en la base de datos.`);
+    if (migratedPasswords > 0) {
+      console.log(`🔒 Se encriptaron con éxito las contraseñas de ${migratedPasswords} user(s) existentes en la base de datos.`);
     }
 
   } catch (error) {
@@ -386,4 +386,4 @@ const inicializarDatos = async () => {
   }
 };
 
-module.exports = inicializarDatos;
+module.exports = initializeData;

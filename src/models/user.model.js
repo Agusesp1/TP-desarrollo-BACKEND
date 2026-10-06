@@ -2,17 +2,17 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const { hashPassword, comparePassword, isBcryptHash } = require('../utils/hash.util');
 
-const Usuario = sequelize.define('Usuario', {
+const User = sequelize.define('User', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  nombre: {
+  name: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
-  apellido: {
+  lastname: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
@@ -21,7 +21,7 @@ const Usuario = sequelize.define('Usuario', {
     allowNull: false,
     unique: true
   },
-  fecha_nacimiento: {
+  birth_date: {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
@@ -41,41 +41,41 @@ const Usuario = sequelize.define('Usuario', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  fecha_inscripcion: {
+  enrollment_date: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   },
-  categoria: {
+  category: {
     type: DataTypes.ENUM('Inicial', 'Medium', 'Premium'),
     defaultValue: 'Inicial'
   },
-  rol: {
-    type: DataTypes.ENUM('admin', 'usuario', 'profesor'),
-    defaultValue: 'usuario'
+  role: {
+    type: DataTypes.ENUM('admin', 'user', 'teacher'),
+    defaultValue: 'user'
   },
-  estado: {
+  status: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
 }, {
-  tableName: 'usuarios',
+  tableName: 'users',
   timestamps: false,
   hooks: {
-    beforeCreate: async (usuario) => {
-      if (usuario.password && !isBcryptHash(usuario.password)) {
-        usuario.password = await hashPassword(usuario.password);
+    beforeCreate: async (user) => {
+      if (user.password && !isBcryptHash(user.password)) {
+        user.password = await hashPassword(user.password);
       }
     },
-    beforeUpdate: async (usuario) => {
-      if (usuario.changed('password') && usuario.password && !isBcryptHash(usuario.password)) {
-        usuario.password = await hashPassword(usuario.password);
+    beforeUpdate: async (user) => {
+      if (user.changed('password') && user.password && !isBcryptHash(user.password)) {
+        user.password = await hashPassword(user.password);
       }
     }
   }
 });
 
 // Método de instancia para verificar contraseña con soporte para migración de texto plano a bcrypt
-Usuario.prototype.validarPassword = async function (plainPassword) {
+User.prototype.validatePassword = async function (plainPassword) {
   if (!this.password || !plainPassword) return false;
 
   if (isBcryptHash(this.password)) {
@@ -92,5 +92,5 @@ Usuario.prototype.validarPassword = async function (plainPassword) {
   return false;
 };
 
-module.exports = Usuario;
+module.exports = User;
 

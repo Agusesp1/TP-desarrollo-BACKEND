@@ -1,69 +1,69 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-const Actividad = require('./actividad.model');
-const Profesor = require('./profesor.model');
-const Sede = require('./sede.model');
+const Activity = require('./activity.model');
+const Teacher = require('./teacher.model');
+const Branch = require('./branch.model');
 
-const Turno = sequelize.define('Turno', {
+const Shift = sequelize.define('Shift', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  actividad_id: {
+  activity_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: Actividad,
+      model: Activity,
       key: 'id'
     }
   },
-  horarioInicio: {
+  startTime: {
     type: DataTypes.STRING(10), // Ej: "08:00", "18:30"
     allowNull: false
   },
-  horaFin: {
+  endTime: {
     type: DataTypes.STRING(10), // Ej: "09:00", "19:30"
     allowNull: false
   },
-  dia_semana: {
+  dayOfWeek: {
     type: DataTypes.STRING(100), // Ej: "Lunes a Sábado", "Lunes a Viernes", "Lunes, Miércoles y Viernes", "Lunes"
     allowNull: false,
     defaultValue: 'Lunes a Sábado'
   },
-  profesor_id: {
+  teacher_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: Profesor,
+      model: Teacher,
       key: 'id'
     }
   },
-  sede_id: {
+  branch_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: Sede,
+      model: Branch,
       key: 'id'
     }
   },
-  estado: {
+  status: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
 }, {
-  tableName: 'turnos',
+  tableName: 'shifts',
   timestamps: false
 });
 
 // Relaciones
-Actividad.hasMany(Turno, { foreignKey: 'actividad_id', as: 'turnos' });
-Turno.belongsTo(Actividad, { foreignKey: 'actividad_id', as: 'actividad' });
+Activity.hasMany(Shift, { foreignKey: 'activity_id', as: 'shifts' });
+Shift.belongsTo(Activity, { foreignKey: 'activity_id', as: 'activity' });
 
-Profesor.hasMany(Turno, { foreignKey: 'profesor_id', as: 'turnos' });
-Turno.belongsTo(Profesor, { foreignKey: 'profesor_id', as: 'profesor' });
+Teacher.hasMany(Shift, { foreignKey: 'teacher_id', as: 'shifts' });
+Shift.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
 
-Sede.hasMany(Turno, { foreignKey: 'sede_id', as: 'turnos' });
-Turno.belongsTo(Sede, { foreignKey: 'sede_id', as: 'sede' });
+Branch.hasMany(Shift, { foreignKey: 'branch_id', as: 'shifts' });
+Shift.belongsTo(Branch, { foreignKey: 'branch_id', as: 'branch' });
 
-module.exports = Turno;
+module.exports = Shift;

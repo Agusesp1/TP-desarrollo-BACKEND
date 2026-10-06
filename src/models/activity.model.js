@@ -1,62 +1,62 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
-const Sede = require('./sede.model');
-const Profesor = require('./profesor.model');
+const Branch = require('./branch.model');
+const Teacher = require('./teacher.model');
 
-const Actividad = sequelize.define('Actividad', {
+const Activity = sequelize.define('Activity', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
     primaryKey: true
   },
-  nombre: {
+  name: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
-  duracion: {
+  duration: {
     type: DataTypes.INTEGER, // Duración en minutos (ej: 45, 60)
     allowNull: false,
     defaultValue: 60
   },
-  cupo: {
-    type: DataTypes.INTEGER, // Capacidad / cupo máximo de participantes
+  capacity: {
+    type: DataTypes.INTEGER, // Capacity / capacity máximo de participantes
     allowNull: false,
     defaultValue: 20
   },
-  descripcion: {
+  description: {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  estado: {
+  status: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
-  sede_id: {
+  branch_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: Sede,
+      model: Branch,
       key: 'id'
     }
   },
-  profesor_id: {
+  teacher_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: Profesor,
+      model: Teacher,
       key: 'id'
     }
   }
 }, {
-  tableName: 'actividades',
+  tableName: 'activities',
   timestamps: false
 });
 
 // Relaciones
-Sede.hasMany(Actividad, { foreignKey: 'sede_id', as: 'actividades' });
-Actividad.belongsTo(Sede, { foreignKey: 'sede_id', as: 'sede' });
+Branch.hasMany(Activity, { foreignKey: 'branch_id', as: 'activities' });
+Activity.belongsTo(Branch, { foreignKey: 'branch_id', as: 'branch' });
 
-Profesor.hasMany(Actividad, { foreignKey: 'profesor_id', as: 'actividades' });
-Actividad.belongsTo(Profesor, { foreignKey: 'profesor_id', as: 'profesor' });
+Teacher.hasMany(Activity, { foreignKey: 'teacher_id', as: 'activities' });
+Activity.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
 
-module.exports = Actividad;
+module.exports = Activity;

@@ -1,6 +1,6 @@
 const emailService = require('../services/email.service');
 
-// Controlador para enviar un correo de prueba o personalizado
+// Controller para enviar un correo de prueba o personalizado
 const enviarCorreo = async (req, res) => {
   const { to, subject, html } = req.body;
 
@@ -16,66 +16,66 @@ const enviarCorreo = async (req, res) => {
       html: contenidoHtml
     });
 
-    if (!resultado.exito) {
+    if (!resultado.success) {
       return res.status(500).json({
-        exito: false,
-        mensaje: 'No se pudo enviar el correo electrónico',
+        success: false,
+        message: 'No se pudo enviar el correo electrónico',
         detalles: resultado.error
       });
     }
 
     return res.json({
-      exito: true,
-      mensaje: 'Correo electrónico enviado con éxito',
+      success: true,
+      message: 'Correo electrónico enviado con éxito',
       respuesta: resultado.data
     });
   } catch (error) {
-    console.error('Error en controlador de email:', error);
+    console.error('Error en controller de email:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error interno al procesar el envío de correo',
+      success: false,
+      message: 'Error interno al procesar el envío de correo',
       detalles: error.message
     });
   }
 };
 
-// Controlador para recibir mensajes del Formulario de Contacto
+// Controller para recibir mensajes del Formulario de Contacto
 const enviarContacto = async (req, res) => {
-  const { nombre, email, asunto, mensaje } = req.body;
+  const { name, email, asunto, message } = req.body;
 
-  if (!nombre || !email || !mensaje) {
+  if (!name || !email || !message) {
     return res.status(400).json({
-      exito: false,
-      mensaje: 'Nombre, email y mensaje son requeridos.'
+      success: false,
+      message: 'Name, email y message son requeridos.'
     });
   }
 
   try {
     const resultado = await emailService.enviarMailContacto({
-      nombre,
+      name,
       email,
       asunto,
-      mensaje
+      message
     });
 
-    if (!resultado.exito) {
+    if (!resultado.success) {
       return res.status(500).json({
-        exito: false,
-        mensaje: 'No se pudo enviar el mensaje de contacto',
+        success: false,
+        message: 'No se pudo enviar el message de contacto',
         detalles: resultado.error
       });
     }
 
     return res.json({
-      exito: true,
-      mensaje: 'Mensaje de contacto enviado con éxito',
+      success: true,
+      message: 'Message de contacto enviado con éxito',
       respuesta: resultado.data
     });
   } catch (error) {
-    console.error('Error al procesar mensaje de contacto:', error);
+    console.error('Error al procesar message de contacto:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error interno al procesar la consulta de contacto',
+      success: false,
+      message: 'Error interno al procesar la consulta de contacto',
       detalles: error.message
     });
   }

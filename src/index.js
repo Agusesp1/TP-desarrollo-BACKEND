@@ -2,18 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
-const usuarioRoutes = require('./routes/usuario.routes');
+const userRoutes = require('./routes/user.routes');
 const emailRoutes = require('./routes/email.routes');
-const sedeRoutes = require('./routes/sede.routes');
-const profesorRoutes = require('./routes/profesor.routes');
-const actividadRoutes = require('./routes/actividad.routes');
-const turnoRoutes = require('./routes/turno.routes');
-const reservaRoutes = require('./routes/reserva.routes');
+const branchRoutes = require('./routes/branch.routes');
+const teacherRoutes = require('./routes/teacher.routes');
+const activityRoutes = require('./routes/activity.routes');
+const shiftRoutes = require('./routes/shift.routes');
+const reservationRoutes = require('./routes/reservation.routes');
 const adminRoutes = require('./routes/admin.routes');
-const cuotaRoutes = require('./routes/cuota.routes');
-const pagoRoutes = require('./routes/pago.routes');
+const quotaRoutes = require('./routes/quota.routes');
+const paymentRoutes = require('./routes/payment.routes');
 const sequelize = require('./config/db');
-const inicializarDatos = require('./config/seed');
+const initializeData = require('./config/seed');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,29 +22,29 @@ const PORT = process.env.PORT || 3000;
 app.use(cors()); // Permite peticiones desde el frontend de React
 app.use(express.json()); // Parsea peticiones con cuerpo JSON
 
-// Ruta de prueba inicial
+// Route de prueba inicial
 app.get('/', (req, res) => {
-  res.json({ mensaje: '¡El servidor Backend está funcionando correctamente con Sequelize ORM!' });
+  res.json({ message: '¡El servidor Backend está funcionando correctamente con Sequelize ORM!' });
 });
 
-// Rutas de la API
+// Routes de la API
 app.use('/api/auth', authRoutes);
-app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/email', emailRoutes);
-app.use('/api/sedes', sedeRoutes);
-app.use('/api/profesores', profesorRoutes);
-app.use('/api/actividades', actividadRoutes);
-app.use('/api/turnos', turnoRoutes);
-app.use('/api/reservas', reservaRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/shifts', shiftRoutes);
+app.use('/api/reservations', reservationRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/cuotas', cuotaRoutes);
-app.use('/api/pagos', pagoRoutes);
+app.use('/api/quotas', quotaRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Probar conexión a la base de datos con Sequelize e inicializar datos al iniciar el servidor
 sequelize.authenticate()
   .then(async () => {
     console.log('✅ Conexión exitosa a la base de datos MySQL mediante Sequelize');
-    await inicializarDatos();
+    await initializeData();
   })
   .catch((error) => {
     console.warn('⚠️ No se pudo conectar a MySQL mediante Sequelize al iniciar:', error.message);

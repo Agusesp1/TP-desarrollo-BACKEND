@@ -1,9 +1,9 @@
-const Usuario = require('../models/usuario.model');
-const Sede = require('../models/sede.model');
-const Profesor = require('../models/profesor.model');
-const Actividad = require('../models/actividad.model');
-const Turno = require('../models/turno.model');
-const cuotaService = require('../services/cuota.service');
+const User = require('../models/user.model');
+const Branch = require('../models/branch.model');
+const Teacher = require('../models/teacher.model');
+const Activity = require('../models/activity.model');
+const Shift = require('../models/shift.model');
+const quotaService = require('../services/quota.service');
 
 // Obtener estadísticas generales para el panel de administración
 const obtenerEstadisticas = async (req, res) => {
@@ -11,141 +11,141 @@ const obtenerEstadisticas = async (req, res) => {
     const [
       totalSocios,
       totalProfesores,
-      profesoresActivos,
+      teachersActivos,
       totalSedes,
-      sedesActivas,
+      branchesActivas,
       totalActividades,
-      actividadesActivas,
+      activitiesActivas,
       totalTurnos,
-      turnosActivos
+      shiftsActivos
     ] = await Promise.all([
-      Usuario.count({ where: { rol: 'usuario', estado: true } }),
-      Profesor.count(),
-      Profesor.count({ where: { estado: true } }),
-      Sede.count(),
-      Sede.count({ where: { estado: true } }),
-      Actividad.count(),
-      Actividad.count({ where: { estado: true } }),
-      Turno.count(),
-      Turno.count({ where: { estado: true } })
+      User.count({ where: { role: 'user', status: true } }),
+      Teacher.count(),
+      Teacher.count({ where: { status: true } }),
+      Branch.count(),
+      Branch.count({ where: { status: true } }),
+      Activity.count(),
+      Activity.count({ where: { status: true } }),
+      Shift.count(),
+      Shift.count({ where: { status: true } })
     ]);
 
     return res.json({
-      exito: true,
+      success: true,
       estadisticas: {
         totalSocios,
         totalProfesores,
-        profesoresActivos,
+        teachersActivos,
         totalSedes,
-        sedesActivas,
+        branchesActivas,
         totalActividades,
-        actividadesActivas,
+        activitiesActivas,
         totalTurnos,
-        turnosActivos
+        shiftsActivos
       }
     });
   } catch (error) {
     console.error('Error al obtener estadísticas del panel admin:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error al obtener estadísticas',
+      success: false,
+      message: 'Error al obtener estadísticas',
       detalles: error.message
     });
   }
 };
 
-// Obtener listado de clientes/socios y usuarios en general con información de cuotas
+// Obtener listado de clients/members y users en general con información de quotas
 const obtenerUsuarios = async (req, res) => {
   try {
-    // Sincronizar estados de las cuotas antes de evaluar cobranza
-    await cuotaService.actualizarEstadosCuotas();
+    // Sincronizar estados de las quotas antes de evaluar cobranza
+    await quotaService.updateQuotasStatuses();
 
-    const usuarios = await Usuario.findAll({
+    const users = await User.findAll({
       attributes: { exclude: ['password'] },
       order: [['id', 'DESC']]
     });
 
-    const usuariosConEstadoCuotas = await Promise.all(
-      usuarios.map(async (usuario) => {
-        const jsonUser = usuario.toJSON();
+    const usersConEstadoCuotas = await Promise.all(
+      users.map(async (user) => {
+        const jsonUser = user.toJSON();
 
-        if (usuario.rol === 'usuario') {
-          // Evaluar cobranza de usuario/cliente
-          const cobranza = await cuotaService.obtenerEstadoCobranzaUsuario(usuario.id);
+        if (user.role === 'user') {
+          // Evaluar cobranza de user/cliente
+          const cobranza = await quotaService.obtenerEstadoCobranzaUsuario(user.id);
 
-          // Si tiene cuotas 'no pagado', sincronizar o reflejar si está activo o desactivado por falta de pago
-          let estadoActual = usuario.estado;
-          if (cobranza.estadoCuota === 'Con Deuda') {
-            if (usuario.estado) {
-              await usuario.update({ estado: false });
-              estadoActual = false;
+          // Si tiene quotas 'no pagado', sincronizar o reflejar si está active o desactivado por falta de payment
+          let statusActual = user.status;
+          if (cobranza.statusCuota === 'Con Deuda') {
+            if (user.status) {
+              await user.update({ status: false });
+              statusActual = false;
             }
           }
 
           return {
             ...jsonUser,
-            estado: estadoActual,
-            estadoCuota: cobranza.estadoCuota,
+            status: statusActual,
+            statusCuota: cobranza.statusCuota,
             demorado: cobranza.demorado,
             alDia: cobranza.alDia,
             cantCuotasVencidas: cobranza.cantVencidas,
-            cuotasVencidas: cobranza.cuotasVencidas
+            quotasVencidas: cobranza.quotasVencidas
           };
         } else {
-          // Administradores y profesores no poseen cuotas
+          // Administradores y teachers no poseen quotas
           return {
             ...jsonUser,
-            estadoCuota: 'N/A',
+            statusCuota: 'N/A',
             demorado: false,
             alDia: true,
             cantCuotasVencidas: 0,
-            cuotasVencidas: []
+            quotasVencidas: []
           };
         }
       })
     );
 
     return res.json({
-      exito: true,
-      usuarios: usuariosConEstadoCuotas
+      success: true,
+      users: usersConEstadoCuotas
     });
   } catch (error) {
-    console.error('Error al obtener usuarios:', error);
+    console.error('Error al obtener users:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error al obtener usuarios',
+      success: false,
+      message: 'Error al obtener users',
       detalles: error.message
     });
   }
 };
 
-// Cambiar estado activo/inactivo de un usuario
+// Cambiar status active/inactivo de un user
 const toggleEstadoUsuario = async (req, res) => {
   const { id } = req.params;
   try {
-    const usuario = await Usuario.findByPk(id);
-    if (!usuario) {
+    const user = await User.findByPk(id);
+    if (!user) {
       return res.status(404).json({
-        exito: false,
-        mensaje: 'Usuario no encontrado'
+        success: false,
+        message: 'User no encontrado'
       });
     }
 
-    const nuevoEstado = !usuario.estado;
-    await usuario.update({ estado: nuevoEstado });
+    const nuevoEstado = !user.status;
+    await user.update({ status: nuevoEstado });
 
-    const { password: _, ...datosUsuario } = usuario.toJSON();
+    const { password: _, ...datosUsuario } = user.toJSON();
 
     return res.json({
-      exito: true,
-      mensaje: `Usuario ${nuevoEstado ? 'activado' : 'pausado'} exitosamente`,
-      usuario: datosUsuario
+      success: true,
+      message: `User ${nuevoEstado ? 'activado' : 'pausado'} exitosamente`,
+      user: datosUsuario
     });
   } catch (error) {
-    console.error('Error al cambiar estado del usuario:', error);
+    console.error('Error al cambiar status del user:', error);
     return res.status(500).json({
-      exito: false,
-      mensaje: 'Error al cambiar estado del usuario',
+      success: false,
+      message: 'Error al cambiar status del user',
       detalles: error.message
     });
   }

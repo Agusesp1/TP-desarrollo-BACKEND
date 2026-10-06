@@ -4,20 +4,20 @@ const {
   crearPreferenciaPago,
   recibirWebhook,
   confirmarPago
-} = require('../controllers/pago.controller');
+} = require('../controllers/payment.controller');
 
-// Ruta para generar el link de pago
+// Route para generar el link de payment
 router.post('/create-preference', crearPreferenciaPago);
 
-// Rutas de confirmación de pago de Mercado Pago
+// Routes de confirmación de payment de Mercado Payment
 router.post('/confirmar', confirmarPago);
 router.get('/confirmar', confirmarPago);
 router.post('/mercadopago/confirmar', confirmarPago);
 router.get('/mercadopago/confirmar', confirmarPago);
-router.post('/exito', confirmarPago);
-router.get('/exito', confirmarPago);
+router.post('/success', confirmarPago);
+router.get('/success', confirmarPago);
 
-// Ruta para recibir notificaciones (webhooks) de Mercado Pago (pública)
+// Route para recibir notificaciones (webhooks) de Mercado Payment (pública)
 router.post('/webhook', recibirWebhook);
 
 module.exports = router;
