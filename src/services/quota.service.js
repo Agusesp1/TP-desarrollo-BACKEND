@@ -196,7 +196,14 @@ const generateInitialQuotas = async (userId, dateInscripcion = null) => {
       // Periodo: month y año de la quota
       const periodo = formatearPeriodo(dateEmision);
 
-      const amount = await obtenerPrecioVigenteParaFecha(dateVencimiento);
+      let amountBase = await obtenerPrecioVigenteParaFecha(dateVencimiento);
+      let amount = amountBase;
+      if (user.category === 'Medium') {
+        amount = amountBase * 0.95;
+      } else if (user.category === 'Premium') {
+        amount = amountBase * 0.85;
+      }
+
       const status = calcularEstadoReal({
         date_vencimiento: dateVencimiento,
         date_limite_payment: dateLimitePago,
@@ -269,7 +276,15 @@ const asegurarCuotasMensuales = async (userId) => {
       const dateVencimiento = sumarMeses(dateEmision, 1);
       const dateLimitePago = sumarDias(dateVencimiento, 5);
       const periodo = formatearPeriodo(dateEmision);
-      const amount = await obtenerPrecioVigenteParaFecha(dateVencimiento);
+      
+      let amountBase = await obtenerPrecioVigenteParaFecha(dateVencimiento);
+      let amount = amountBase;
+      if (user.category === 'Medium') {
+        amount = amountBase * 0.95;
+      } else if (user.category === 'Premium') {
+        amount = amountBase * 0.85;
+      }
+
       const status = calcularEstadoReal({
         date_vencimiento: dateVencimiento,
         date_limite_payment: dateLimitePago,

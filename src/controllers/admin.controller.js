@@ -57,10 +57,21 @@ const obtenerEstadisticas = async (req, res) => {
 // Obtener listado de clients/members y users en general con información de quotas
 const obtenerUsuarios = async (req, res) => {
   try {
-    // Sincronizar estados de las quotas antes de evaluar cobranza
+    // Sincronizar estados de las cuotas antes de evaluar cobranza
     await quotaService.updateQuotasStatuses();
 
+    const { category, status } = req.query;
+    const whereClause = { role: 'user' };
+    
+    if (category) {
+      whereClause.category = category;
+    }
+    if (status !== undefined) {
+      whereClause.status = status === 'true';
+    }
+
     const users = await User.findAll({
+      where: whereClause,
       attributes: { exclude: ['password'] },
       order: [['id', 'DESC']]
     });

@@ -132,8 +132,42 @@ const eliminarPerfil = async (req, res) => {
   }
 };
 
+// Obtener usuarios con filtros
+const getUsers = async (req, res) => {
+  try {
+    const { category, status } = req.query;
+    const whereClause = { role: 'user' };
+
+    if (category) {
+      whereClause.category = category;
+    }
+    if (status !== undefined) {
+      whereClause.status = status === 'true';
+    }
+
+    const users = await User.findAll({
+      where: whereClause,
+      attributes: { exclude: ['password'] },
+      order: [['id', 'DESC']]
+    });
+
+    return res.json({
+      success: true,
+      users
+    });
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener usuarios',
+      detalles: error.message
+    });
+  }
+};
+
 module.exports = {
   actualizarPerfil,
   cambiarPassword,
-  eliminarPerfil
+  eliminarPerfil,
+  getUsers
 };

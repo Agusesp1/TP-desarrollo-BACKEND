@@ -44,7 +44,7 @@ const Teacher = sequelize.define('Teacher', {
   },
   branch_id: {
     type: DataTypes.INTEGER,
-    allowNull: true,
+    allowNull: false,
     references: {
       model: Branch,
       key: 'id'
