@@ -1,44 +1,28 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const apiKey = process.env.RESEND_API_KEY;
-if (!apiKey) {
-  console.warn('⚠️ RESEND_API_KEY no está configurada en las variables de entorno.');
-}
+const SMTP_USER = process.env.SMTP_USER || process.env.ADMIN_EMAIL;
+const SMTP_PASS = process.env.SMTP_PASS || process.env.ADMIN_PASSWORD;
+const DEFAULT_FROM = process.env.EMAIL_FROM || SMTP_USER;
 
-const resend = apiKey ? new Resend(apiKey) : null;
-const DEFAULT_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: SMTP_USER,
+    pass: SMTP_PASS
+  }
+});
 
-/**
- * Función genérica para enviar correos electrónicos con Resend.
- * @param {Object} params
- * @param {string} params.to - Destinatario o array de destinatarios
- * @param {string} params.subject - Asunto del correo
- * @param {string} [params.html] - Contenido HTML
- * @param {string} [params.text] - Contenido en texto plano
- * @param {string} [params.from] - Remitente opcional
- */
 const enviarMail = async ({ to, subject, html, text, from = DEFAULT_FROM }) => {
   try {
-    if (!resend) {
-      console.warn('⚠️ No se envió correo: RESEND_API_KEY no está configurada.');
-      return { success: false, error: 'RESEND_API_KEY no configurada' };
+    if (!SMTP_PASS) {
+      console.warn('⚠️ No se envió correo: SMTP_PASS no configurada.');
+      return { success: false, error: 'Contraseña SMTP no configurada' };
     }
-    const result = await resend.emails.send({
-      from,
-      to,
-      subject,
-      html,
-      text
-    });
-
-    if (result.error) {
-      throw result.error;
-    }
-
-    console.log('✅ Correo enviado exitosamente vía Resend:', result.data);
-    return { success: true, data: result.data };
+    const info = await transporter.sendMail({ from, to, subject, text, html });
+    console.log('✅ Correo enviado vía Nodemailer:', info.messageId);
+    return { success: true, data: info };
   } catch (error) {
-    console.error('❌ Error al enviar correo con Resend:', error);
+    console.error('❌ Error Nodemailer:', error);
     return { success: false, error: error.message || error };
   }
 };
@@ -170,7 +154,6 @@ const enviarMail2FA = async (email, code) => {
 };
 
 module.exports = {
-  resend,
   enviarMail,
   enviarMailBienvenida,
   enviarMailContacto,
