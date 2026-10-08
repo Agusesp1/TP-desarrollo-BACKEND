@@ -14,7 +14,26 @@ const sequelize = require('./db');
 const initializeData = async () => {
   try {
     // Sincronizar modelos con la base de datos (crea o actualiza tablas según sea necesario)
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
+    
+    // Añadir columnas de autenticación a users si no existen
+    const columnsToAdd = [
+      'ALTER TABLE users ADD COLUMN resetPasswordToken VARCHAR(255);',
+      'ALTER TABLE users ADD COLUMN resetPasswordExpires DATETIME;',
+      'ALTER TABLE users ADD COLUMN twoFactorCode VARCHAR(6);',
+      'ALTER TABLE users ADD COLUMN twoFactorCodeExpires DATETIME;',
+      'ALTER TABLE users ADD COLUMN emailVerificationToken VARCHAR(255);',
+      'ALTER TABLE users ADD COLUMN isEmailVerified BOOLEAN DEFAULT false;',
+      'ALTER TABLE users ADD COLUMN trustedDevices JSON;'
+    ];
+
+    for (const query of columnsToAdd) {
+      try {
+        await sequelize.query(query);
+      } catch (e) {
+        // Ignorar si la columna ya existe
+      }
+    }
     try {
       await sequelize.query('ALTER TABLE branches ADD COLUMN schedule_days JSON;');
       console.log('✅ Columna schedule_days agregada a la tabla branches.');

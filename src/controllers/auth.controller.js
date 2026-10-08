@@ -41,13 +41,17 @@ const registro = async (req, res) => {
 
     // 3. Crear el user en la base de datos usando Sequelize
     const dateFormateada = formatearFechaParaMySQL(dateNac);
+    const verifyToken = crypto.randomBytes(32).toString('hex');
     const nuevoUsuario = await User.create({
       name,
       lastname,
       dni,
       birth_date: dateFormateada,
       email,
-      password
+      password,
+      isEmailVerified: false,
+      emailVerificationToken: verifyToken,
+      trustedDevices: []
     });
 
     // 4. Generar quotas iniciales automáticamente para los próximos 5 meses ÚNICAMENTE si es cliente/user
