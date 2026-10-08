@@ -174,7 +174,7 @@ const login = async (req, res) => {
 
 // Verificar el código 2FA
 const verify2FA = async (req, res) => {
-  const { email, code } = req.body;
+  const { email, code, deviceId } = req.body;
   try {
     const user = await User.findOne({ where: { email } });
     
@@ -188,6 +188,15 @@ const verify2FA = async (req, res) => {
     // Limpiar 2FA
     user.twoFactorCode = null;
     user.twoFactorCodeExpires = null;
+    
+    if (deviceId) {
+      let devices = user.trustedDevices || [];
+      if (!devices.includes(deviceId)) {
+        user.trustedDevices = [...devices, deviceId];
+        user.changed('trustedDevices', true); // Force Sequelize to save JSON array
+      }
+    }
+    
     await user.save();
 
     const { password: _, resetPasswordToken, resetPasswordExpires, twoFactorCode, twoFactorCodeExpires, ...datosUsuario } = user.toJSON();
