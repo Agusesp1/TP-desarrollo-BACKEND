@@ -14,7 +14,7 @@ const sequelize = require('./db');
 const initializeData = async () => {
   try {
     // Sincronizar modelos con la base de datos (crea o actualiza tablas según sea necesario)
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     try {
       await sequelize.query('ALTER TABLE branches ADD COLUMN schedule_days JSON;');
       console.log('✅ Columna schedule_days agregada a la tabla branches.');

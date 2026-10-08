@@ -108,10 +108,69 @@ const enviarMailContacto = async ({ name, email, asunto, message }) => {
   });
 };
 
+/**
+ * Envía un correo de recuperación de contraseña.
+ */
+const enviarMailRecuperacionContrasena = async (email, token) => {
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4F46E5; text-align: center;">Recuperación de Contraseña 🔐</h2>
+      <p style="font-size: 16px; color: #333333;">
+        Hemos recibido una solicitud para restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:
+      </p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+          Restablecer Contraseña
+        </a>
+      </div>
+      <p style="font-size: 14px; color: #777777;">
+        Si no solicitaste este cambio, puedes ignorar este correo. El enlace caducará en 1 hora.
+      </p>
+    </div>
+  `;
+
+  return await enviarMail({
+    to: email,
+    subject: 'Recuperación de Contraseña - GymFit',
+    html
+  });
+};
+
+/**
+ * Envía un código de autenticación de dos factores.
+ */
+const enviarMail2FA = async (email, code) => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4F46E5; text-align: center;">Código de Verificación 🔑</h2>
+      <p style="font-size: 16px; color: #333333;">
+        Estás intentando iniciar sesión. Ingresa el siguiente código de 6 dígitos para verificar tu cuenta:
+      </p>
+      <div style="text-align: center; margin: 30px 0;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #111827; background-color: #F3F4F6; padding: 10px 20px; border-radius: 8px;">
+          ${code}
+        </span>
+      </div>
+      <p style="font-size: 14px; color: #777777;">
+        Este código expirará en 10 minutos. Si no fuiste tú, por favor contacta a soporte.
+      </p>
+    </div>
+  `;
+
+  return await enviarMail({
+    to: email,
+    subject: 'Tu código de verificación - GymFit',
+    html
+  });
+};
+
 module.exports = {
   resend,
   enviarMail,
   enviarMailBienvenida,
-  enviarMailContacto
+  enviarMailContacto,
+  enviarMailRecuperacionContrasena,
+  enviarMail2FA
 };
 

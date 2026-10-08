@@ -56,6 +56,22 @@ const User = sequelize.define('User', {
   status: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  resetPasswordToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  resetPasswordExpires: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  twoFactorCode: {
+    type: DataTypes.STRING(6),
+    allowNull: true
+  },
+  twoFactorCodeExpires: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'users',

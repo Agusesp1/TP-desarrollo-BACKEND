@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const User = require('../models/user.model');
 const emailService = require('../services/email.service');
 const quotaService = require('../services/quota.service');
@@ -80,7 +81,7 @@ const registro = async (req, res) => {
   }
 };
 
-// Controller para el Home de Sesión (Login) con Sequelize
+// Controller para el Home de Sesión (Login) con Sequelize y 2FA
 const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -111,13 +112,24 @@ const login = async (req, res) => {
       });
     }
 
-    // 4. Excluir contraseña de la respuesta
-    const { password: _, ...datosUsuario } = user.toJSON();
+    // 4. Generar código 2FA de 6 dígitos
+    const code2FA = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires2FA = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+    
+    user.twoFactorCode = code2FA;
+    user.twoFactorCodeExpires = expires2FA;
+    await user.save();
+
+    // 5. Enviar correo 2FA
+    emailService.enviarMail2FA(user.email, code2FA).catch((err) => {
+      console.warn('⚠️ No se pudo enviar el correo de 2FA:', err.message || err);
+    });
 
     return res.json({
       success: true,
-      message: 'Home de sesión exitoso',
-      user: datosUsuario
+      message: 'Código de verificación enviado al correo',
+      requiresTwoFactor: true,
+      email: user.email
     });
   } catch (error) {
     console.error('Error en el controller de login:', error);
@@ -129,7 +141,117 @@ const login = async (req, res) => {
   }
 };
 
+// Verificar el código 2FA
+const verify2FA = async (req, res) => {
+  const { email, code } = req.body;
+  try {
+    const user = await User.findOne({ where: { email } });
+    
+    if (!user || user.twoFactorCode !== code || user.twoFactorCodeExpires < new Date()) {
+      return res.status(401).json({
+        success: false,
+        message: 'Código de verificación inválido o expirado'
+      });
+    }
+
+    // Limpiar 2FA
+    user.twoFactorCode = null;
+    user.twoFactorCodeExpires = null;
+    await user.save();
+
+    const { password: _, resetPasswordToken, resetPasswordExpires, twoFactorCode, twoFactorCodeExpires, ...datosUsuario } = user.toJSON();
+
+    return res.json({
+      success: true,
+      message: 'Inicio de sesión exitoso',
+      user: datosUsuario
+    });
+  } catch (error) {
+    console.error('Error en verificar 2FA:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al verificar el código',
+      detalles: error.message
+    });
+  }
+};
+
+// Solicitar recuperación de contraseña
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No existe un usuario con ese correo electrónico'
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    await user.save();
+
+    emailService.enviarMailRecuperacionContrasena(user.email, resetToken).catch(err => {
+       console.warn('⚠️ No se pudo enviar correo de recuperación:', err.message);
+    });
+
+    return res.json({
+      success: true,
+      message: 'Correo de recuperación enviado con éxito'
+    });
+  } catch (error) {
+    console.error('Error en forgot password:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al solicitar recuperación de contraseña',
+      detalles: error.message
+    });
+  }
+};
+
+// Restablecer la contraseña
+const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ 
+      where: { 
+        resetPasswordToken: token
+      } 
+    });
+
+    if (!user || user.resetPasswordExpires < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'El token de recuperación es inválido o ha expirado'
+      });
+    }
+
+    // Actualizar contraseña (el hook beforeUpdate de Sequelize hasheará la contraseña)
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Contraseña restablecida con éxito'
+    });
+  } catch (error) {
+    console.error('Error en reset password:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno al restablecer la contraseña',
+      detalles: error.message
+    });
+  }
+};
+
 module.exports = {
   registro,
-  login
+  login,
+  verify2FA,
+  forgotPassword,
+  resetPassword
 };
