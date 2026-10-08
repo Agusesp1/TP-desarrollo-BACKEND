@@ -153,7 +153,38 @@ const enviarMail2FA = async (email, code) => {
   });
 };
 
+
+/**
+ * Envía un correo de verificación de cuenta.
+ */
+const enviarMailVerificacion = async (email, token) => {
+  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4F46E5; text-align: center;">Verifica tu correo electrónico ✉️</h2>
+      <p style="font-size: 16px; color: #333333;">
+        Gracias por registrarte. Para poder iniciar sesión, necesitamos que verifiques tu cuenta haciendo clic en el siguiente enlace:
+      </p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verifyUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+          Verificar Cuenta
+        </a>
+      </div>
+      <p style="font-size: 14px; color: #777777;">
+        Si no solicitaste crear esta cuenta, puedes ignorar este correo.
+      </p>
+    </div>
+  `;
+
+  return await enviarMail({
+    to: email,
+    subject: 'Verifica tu cuenta - GymFit',
+    html
+  });
+};
+
 module.exports = {
+  enviarMailVerificacion,
   enviarMail,
   enviarMailBienvenida,
   enviarMailContacto,

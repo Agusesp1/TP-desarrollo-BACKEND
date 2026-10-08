@@ -23,6 +23,10 @@ const initializeData = async () => {
     }
     console.log('📦 Base de datos sincronizada correctamente.');
 
+    
+    // Verificar todos los usuarios existentes por defecto (migración)
+    await User.update({ isEmailVerified: true }, { where: { isEmailVerified: false } });
+
     // 1. Crear o asegurar user Administrador
     const adminEmail = process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'adminfit';

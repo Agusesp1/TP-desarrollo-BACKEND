@@ -72,6 +72,18 @@ const User = sequelize.define('User', {
   twoFactorCodeExpires: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  isEmailVerified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  emailVerificationToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  trustedDevices: {
+    type: DataTypes.JSON,
+    allowNull: true
   }
 }, {
   tableName: 'users',

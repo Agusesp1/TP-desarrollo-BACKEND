@@ -60,15 +60,18 @@ const registro = async (req, res) => {
     }
 
     // 5. Enviar correo de bienvenida (asíncrono, sin bloquear la respuesta)
-    emailService.enviarMailBienvenida({ name, email }).catch((err) => {
-      console.warn('⚠️ No se pudo despachar el correo de bienvenida:', err.message || err);
-    });
+    // 5. Enviar correo de verificación
+    if (emailService.enviarMailVerificacion) {
+      emailService.enviarMailVerificacion(email, verifyToken).catch((err) => {
+        console.warn('Error al enviar mail de verificacion:', err);
+      });
+    }
 
     const { password: _, ...datosUsuario } = nuevoUsuario.toJSON();
 
     return res.status(201).json({
       success: true,
-      message: 'User registrado exitosamente',
+      message: 'Por favor, verifica tu correo electrónico para poder iniciar sesión.',
       user: datosUsuario
     });
   } catch (error) {
@@ -108,9 +111,27 @@ const login = async (req, res) => {
     if (!esPasswordValida) {
       return res.status(401).json({
         success: false,
-        message: 'User o contraseña inválido'
+        message: 'Usuario o contraseña inválido'
       });
     }
+    
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Debes verificar tu correo electrónico antes de iniciar sesión.'
+      });
+    }
+
+    const { deviceId } = req.body;
+    if (deviceId && user.trustedDevices && user.trustedDevices.includes(deviceId)) {
+       const { password: _, resetPasswordToken, resetPasswordExpires, twoFactorCode, twoFactorCodeExpires, emailVerificationToken, trustedDevices, ...datosUsuario } = user.toJSON();
+       return res.json({
+         success: true,
+         message: 'Inicio de sesión exitoso',
+         user: datosUsuario
+       });
+    }
+
 
     // 4. Generar código 2FA de 6 dígitos
     const code2FA = Math.floor(100000 + Math.random() * 900000).toString();
@@ -126,7 +147,7 @@ const login = async (req, res) => {
       console.warn('⚠️ No se pudo enviar el correo de 2FA:', emailResult.error);
       return res.status(500).json({
         success: false,
-        message: 'No se pudo enviar el código de verificación por restricciones de Resend',
+        message: 'No se pudo enviar el código de verificación por problemas con el servidor de correos (SMTP)',
         detalles: emailResult.error
       });
     }
@@ -205,7 +226,7 @@ const forgotPassword = async (req, res) => {
       console.warn('⚠️ No se pudo enviar correo de recuperación:', emailResult.error);
       return res.status(500).json({
         success: false,
-        message: 'No se pudo enviar el correo de recuperación por restricciones de Resend',
+        message: 'No se pudo enviar el correo de recuperación por problemas con el servidor de correos (SMTP)',
         detalles: emailResult.error
       });
     }
@@ -261,7 +282,29 @@ const resetPassword = async (req, res) => {
   }
 };
 
+
+// Verificar el correo electrónico
+const verifyEmail = async (req, res) => {
+  const { token } = req.body;
+  try {
+    const user = await User.findOne({ where: { emailVerificationToken: token } });
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Enlace de verificación inválido o expirado' });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = null;
+    await user.save();
+
+    return res.json({ success: true, message: 'Correo verificado exitosamente. Ya puedes iniciar sesión.' });
+  } catch (error) {
+    console.error('Error al verificar correo:', error);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor al verificar el correo' });
+  }
+};
+
 module.exports = {
+  verifyEmail,
   registro,
   login,
   verify2FA,
