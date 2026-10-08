@@ -121,9 +121,15 @@ const login = async (req, res) => {
     await user.save();
 
     // 5. Enviar correo 2FA
-    emailService.enviarMail2FA(user.email, code2FA).catch((err) => {
-      console.warn('⚠️ No se pudo enviar el correo de 2FA:', err.message || err);
-    });
+    const emailResult = await emailService.enviarMail2FA(user.email, code2FA);
+    if (!emailResult.success) {
+      console.warn('⚠️ No se pudo enviar el correo de 2FA:', emailResult.error);
+      return res.status(500).json({
+        success: false,
+        message: 'No se pudo enviar el código de verificación por restricciones de Resend',
+        detalles: emailResult.error
+      });
+    }
 
     return res.json({
       success: true,
@@ -193,9 +199,16 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
     await user.save();
 
-    emailService.enviarMailRecuperacionContrasena(user.email, resetToken).catch(err => {
-       console.warn('⚠️ No se pudo enviar correo de recuperación:', err.message);
-    });
+    const emailResult = await emailService.enviarMailRecuperacionContrasena(user.email, resetToken);
+    
+    if (!emailResult.success) {
+      console.warn('⚠️ No se pudo enviar correo de recuperación:', emailResult.error);
+      return res.status(500).json({
+        success: false,
+        message: 'No se pudo enviar el correo de recuperación por restricciones de Resend',
+        detalles: emailResult.error
+      });
+    }
 
     return res.json({
       success: true,

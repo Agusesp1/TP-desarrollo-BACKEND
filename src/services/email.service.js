@@ -23,7 +23,7 @@ const enviarMail = async ({ to, subject, html, text, from = DEFAULT_FROM }) => {
       console.warn('⚠️ No se envió correo: RESEND_API_KEY no está configurada.');
       return { success: false, error: 'RESEND_API_KEY no configurada' };
     }
-    const data = await resend.emails.send({
+    const result = await resend.emails.send({
       from,
       to,
       subject,
@@ -31,8 +31,12 @@ const enviarMail = async ({ to, subject, html, text, from = DEFAULT_FROM }) => {
       text
     });
 
-    console.log('✅ Correo enviado exitosamente vía Resend:', data);
-    return { success: true, data };
+    if (result.error) {
+      throw result.error;
+    }
+
+    console.log('✅ Correo enviado exitosamente vía Resend:', result.data);
+    return { success: true, data: result.data };
   } catch (error) {
     console.error('❌ Error al enviar correo con Resend:', error);
     return { success: false, error: error.message || error };
