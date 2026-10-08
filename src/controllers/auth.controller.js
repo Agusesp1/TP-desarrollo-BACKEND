@@ -300,7 +300,13 @@ const verifyEmail = async (req, res) => {
     user.emailVerificationToken = null;
     await user.save();
 
-    return res.json({ success: true, message: 'Correo verificado exitosamente. Ya puedes iniciar sesión.' });
+    const { password: _, resetPasswordToken, resetPasswordExpires, twoFactorCode, twoFactorCodeExpires, emailVerificationToken, trustedDevices, ...datosUsuario } = user.toJSON();
+
+    return res.json({ 
+      success: true, 
+      message: 'Correo verificado exitosamente. Iniciando sesión...',
+      user: datosUsuario
+    });
   } catch (error) {
     console.error('Error al verificar correo:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor al verificar el correo' });
