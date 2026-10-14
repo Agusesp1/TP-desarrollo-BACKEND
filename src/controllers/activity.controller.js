@@ -278,7 +278,7 @@ const actualizarActividad = async (req, res) => {
       activity: activityActualizada
     });
   } catch (error) {
-    console.error('Error al actualizar activity:', error);
+    console.error('Error al actualizar actividad:', error);
     return res.status(500).json({
       success: false,
       message: 'Error interno al actualizar la actividad',
@@ -308,7 +308,7 @@ const toggleEstadoActividad = async (req, res) => {
       activity
     });
   } catch (error) {
-    console.error('Error al cambiar status de la activity:', error);
+    console.error('Error al cambiar status de la actividad:', error);
     return res.status(500).json({
       success: false,
       message: 'Error al cambiar estado de la actividad',
@@ -336,7 +336,7 @@ const eliminarActividad = async (req, res) => {
       message: 'Actividad eliminada exitosamente'
     });
   } catch (error) {
-    console.error('Error al eliminar activity:', error);
+    console.error('Error al eliminar actividad:', error);
     return res.status(500).json({
       success: false,
       message: 'Error al eliminar actividad',

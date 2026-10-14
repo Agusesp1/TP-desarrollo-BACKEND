@@ -304,7 +304,7 @@ const actualizarTurno = async (req, res) => {
       shift: shiftActualizado
     });
   } catch (error) {
-    console.error('Error al actualizar shift:', error);
+    console.error('Error al actualizar turno:', error);
     return res.status(500).json({
       success: false,
       message: 'Error interno al actualizar el turno',
