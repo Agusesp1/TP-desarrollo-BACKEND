@@ -18,7 +18,7 @@ const Branch = sequelize.define('Branch', {
   city: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    defaultValue: 'Córdoba'
+    defaultValue: 'Rosario'
   },
   phone: {
     type: DataTypes.STRING(50),

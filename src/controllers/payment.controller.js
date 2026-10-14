@@ -14,16 +14,16 @@ const crearPreferenciaPago = async (req, res) => {
     });
 
     if (!quota) {
-      return res.status(404).json({ success: false, message: 'Quota no encontrada' });
+      return res.status(404).json({ success: false, message: 'Cuota no encontrada' });
     }
 
     if (quota.status === 'pagado') {
-      return res.status(400).json({ success: false, message: 'Esta quota ya se encuentra pagada' });
+      return res.status(400).json({ success: false, message: 'Esta cuota ya se encuentra pagada' });
     }
 
     // Si no hay token de MP, enviar error
     if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
-      return res.status(500).json({ success: false, message: 'El servidor no tiene configurado Mercado Payment. Por favor, contacte al administrador.' });
+      return res.status(500).json({ success: false, message: 'El servidor no tiene configurado Mercado Pago. Por favor, contacte al administrador.' });
     }
 
     const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN, options: { timeout: 5000 } });
@@ -50,7 +50,7 @@ const crearPreferenciaPago = async (req, res) => {
       items: [
         {
           id: quota.id.toString(),
-          title: `Quota Gym - ${quota.periodo}`,
+          title: `Cuota Gym - ${quota.periodo}`,
           quantity: 1,
           unit_price: Number(quota.amount),
           currency_id: 'ARS',
@@ -86,7 +86,7 @@ const crearPreferenciaPago = async (req, res) => {
 
   } catch (error) {
     console.error('Error al crear preferencia de Mercado Payment:', error);
-    return res.status(500).json({ success: false, message: 'Error al generar link de payment', detalles: error.message });
+    return res.status(500).json({ success: false, message: 'Error al generar link de pago', detalles: error.message });
   }
 };
 

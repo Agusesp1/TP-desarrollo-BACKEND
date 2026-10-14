@@ -94,7 +94,7 @@ const formatearHorarioApertura = (schedule_days) => {
   return partes.join(' | ') || 'Lunes a Sábado';
 };
 
-// Obtener todas las branches
+// Obtener todas las sedes
 const obtenerSedes = async (req, res) => {
   try {
     const { soloActivas } = req.query;
@@ -120,7 +120,7 @@ const obtenerSedes = async (req, res) => {
     console.error('Error al obtener branches:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener el listado de branches',
+      message: 'Error interno al obtener el listado de sedes',
       detalles: error.message
     });
   }
@@ -142,7 +142,7 @@ const obtenerSedePorId = async (req, res) => {
     if (!branch) {
       return res.status(404).json({
         success: false,
-        message: 'Branch no encontrada'
+        message: 'Sede no encontrada'
       });
     }
 
@@ -154,7 +154,7 @@ const obtenerSedePorId = async (req, res) => {
     console.error('Error al obtener branch:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener la branch',
+      message: 'Error interno al obtener la sede',
       detalles: error.message
     });
   }
@@ -180,14 +180,14 @@ const crearSede = async (req, res) => {
   if (!name || !address) {
     return res.status(400).json({
       success: false,
-      message: 'El name y la dirección de la branch son campos requeridos'
+      message: 'El nombre y la dirección de la sede son campos requeridos'
     });
   }
 
   if (phone && phone.toString().trim() !== '' && !/^\d+$/.test(phone.toString().trim())) {
     return res.status(400).json({
       success: false,
-      message: 'El número de teléfono de la branch solo debe contener números'
+      message: 'El número de teléfono de la sede solo debe contener números'
     });
   }
 
@@ -204,7 +204,7 @@ const crearSede = async (req, res) => {
     const nuevaSede = await Branch.create({
       name: name.trim(),
       address: address.trim(),
-      city: city ? city.trim() : 'Córdoba',
+      city: city ? city.trim() : 'Rosario',
       phone: phone ? phone.trim() : null,
       email: email ? email.trim() : null,
       opening_hours: horarioFinal,
@@ -267,8 +267,8 @@ const crearSede = async (req, res) => {
     }
 
     const messageExito = shiftsGeneradosCount > 0
-      ? `Branch creada exitosamente con ${shiftsGeneradosCount} shifts de Musculación generados automáticamente.`
-      : 'Branch creada exitosamente.';
+      ? `Sede creada exitosamente con ${shiftsGeneradosCount} turnos de Musculación generados automáticamente.`
+      : 'Sede creada exitosamente.';
 
     return res.status(201).json({
       success: true,
@@ -280,7 +280,7 @@ const crearSede = async (req, res) => {
     console.error('Error al crear branch:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al crear la branch',
+      message: 'Error interno al crear la sede',
       detalles: error.message
     });
   }
@@ -306,14 +306,14 @@ const actualizarSede = async (req, res) => {
     if (!branch) {
       return res.status(404).json({
         success: false,
-        message: 'Branch no encontrada'
+        message: 'Sede no encontrada'
       });
     }
 
     if (phone !== undefined && phone !== null && phone.toString().trim() !== '' && !/^\d+$/.test(phone.toString().trim())) {
       return res.status(400).json({
         success: false,
-        message: 'El número de teléfono de la branch solo debe contener números'
+        message: 'El número de teléfono de la sede solo debe contener números'
       });
     }
 
@@ -336,14 +336,14 @@ const actualizarSede = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Branch actualizada exitosamente',
+      message: 'Sede actualizada exitosamente',
       branch
     });
   } catch (error) {
     console.error('Error al actualizar branch:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al actualizar la branch',
+      message: 'Error interno al actualizar la sede',
       detalles: error.message
     });
   }
@@ -357,7 +357,7 @@ const toggleEstadoSede = async (req, res) => {
     if (!branch) {
       return res.status(404).json({
         success: false,
-        message: 'Branch no encontrada'
+        message: 'Sede no encontrada'
       });
     }
 
@@ -366,14 +366,14 @@ const toggleEstadoSede = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Branch ${nuevoEstado ? 'activada' : 'desactivada'} exitosamente`,
+      message: `Sede ${nuevoEstado ? 'activada' : 'desactivada'} exitosamente`,
       branch
     });
   } catch (error) {
     console.error('Error al cambiar status de la branch:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al cambiar status de la branch',
+      message: 'Error al cambiar estado de la sede',
       detalles: error.message
     });
   }
@@ -387,7 +387,7 @@ const eliminarSede = async (req, res) => {
     if (!branch) {
       return res.status(404).json({
         success: false,
-        message: 'Branch no encontrada'
+        message: 'Sede no encontrada'
       });
     }
 
@@ -395,13 +395,13 @@ const eliminarSede = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Branch eliminada exitosamente'
+      message: 'Sede eliminada exitosamente'
     });
   } catch (error) {
     console.error('Error al eliminar branch:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al eliminar branch',
+      message: 'Error al eliminar sede',
       detalles: error.message
     });
   }

@@ -159,7 +159,7 @@ const calcularEstadoReal = (quota, dateReferencia = null) => {
 const generateInitialQuotas = async (userId, dateInscripcion = null) => {
   try {
     if (!userId) {
-      throw new Error('userId es obligatorio para generar quotas');
+      throw new Error('userId es obligatorio para generar cuotas');
     }
 
     // Verificar el user en la BD. Si role !== 'user', no generar quotas y retornar []

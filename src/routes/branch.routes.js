@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const branchController = require('../controllers/branch.controller');
 
-// Routes de branches
+// Routes de sucursales
 router.get('/', branchController.obtenerSedes);
 router.get('/:id', branchController.obtenerSedePorId);
 router.post('/', branchController.crearSede);

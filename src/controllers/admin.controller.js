@@ -124,7 +124,7 @@ const obtenerUsuarios = async (req, res) => {
     console.error('Error al obtener users:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener users',
+      message: 'Error al obtener usuarios',
       detalles: error.message
     });
   }
@@ -138,7 +138,7 @@ const toggleEstadoUsuario = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User no encontrado'
+        message: 'Usuario no encontrado'
       });
     }
 
@@ -149,14 +149,14 @@ const toggleEstadoUsuario = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `User ${nuevoEstado ? 'activado' : 'pausado'} exitosamente`,
+      message: `Usuario ${nuevoEstado ? 'activado' : 'pausado'} exitosamente`,
       user: datosUsuario
     });
   } catch (error) {
     console.error('Error al cambiar status del user:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al cambiar status del user',
+      message: 'Error al cambiar el estado del usuario',
       detalles: error.message
     });
   }

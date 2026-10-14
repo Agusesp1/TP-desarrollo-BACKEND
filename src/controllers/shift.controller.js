@@ -104,10 +104,10 @@ const obtenerTurnos = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error al obtener shifts:', error);
+    console.error('Error al obtener turnos:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener los shifts',
+      message: 'Error interno al obtener los turnos',
       detalles: error.message
     });
   }
@@ -128,7 +128,7 @@ const obtenerTurnoPorId = async (req, res) => {
     if (!shift) {
       return res.status(404).json({
         success: false,
-        message: 'Shift no encontrado'
+        message: 'Turno no encontrado'
       });
     }
 
@@ -140,7 +140,7 @@ const obtenerTurnoPorId = async (req, res) => {
     console.error('Error al obtener shift:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener el shift',
+      message: 'Error interno al obtener el turno',
       detalles: error.message
     });
   }
@@ -153,7 +153,7 @@ const crearTurno = async (req, res) => {
   if (!activity_id || !startTime || !endTime) {
     return res.status(400).json({
       success: false,
-      message: 'La activity, el schedule de home y el schedule de fin son campos obligatorios'
+      message: 'La actividad, el horario de inicio y el horario de fin son campos obligatorios'
     });
   }
 
@@ -163,7 +163,7 @@ const crearTurno = async (req, res) => {
     if (!activity) {
       return res.status(404).json({
         success: false,
-        message: 'La activity especificada no existe'
+        message: 'La actividad especificada no existe'
       });
     }
 
@@ -176,7 +176,7 @@ const crearTurno = async (req, res) => {
       if (!teacher) {
         return res.status(404).json({
           success: false,
-          message: 'El teacher especificado no existe'
+          message: 'El profesor especificado no existe'
         });
       }
       if (teacher.branch_id && effectiveSedeId && parseInt(teacher.branch_id, 10) !== parseInt(effectiveSedeId, 10)) {
@@ -184,11 +184,11 @@ const crearTurno = async (req, res) => {
           Branch.findByPk(teacher.branch_id),
           Branch.findByPk(effectiveSedeId)
         ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Branch #${teacher.branch_id}`;
-        const nomSedeTurno = branchTurno ? branchTurno.name : `Branch #${effectiveSedeId}`;
+        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
+        const nomSedeTurno = branchTurno ? branchTurno.name : `Sede #${effectiveSedeId}`;
         return res.status(400).json({
           success: false,
-          message: `El teacher ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
+          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
         });
       }
     }
@@ -214,14 +214,14 @@ const crearTurno = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Shift creado exitosamente',
+      message: 'Turno creado exitosamente',
       shift: shiftConRelaciones || nuevoTurno
     });
   } catch (error) {
     console.error('Error al crear shift:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al crear el shift',
+      message: 'Error interno al crear el turno',
       detalles: error.message
     });
   }
@@ -237,7 +237,7 @@ const actualizarTurno = async (req, res) => {
     if (!shift) {
       return res.status(404).json({
         success: false,
-        message: 'Shift no encontrado'
+        message: 'Turno no encontrado'
       });
     }
 
@@ -248,7 +248,7 @@ const actualizarTurno = async (req, res) => {
       if (!activityObj) {
         return res.status(404).json({
           success: false,
-          message: 'La activity especificada no existe'
+          message: 'La actividad especificada no existe'
         });
       }
     }
@@ -263,7 +263,7 @@ const actualizarTurno = async (req, res) => {
       if (!teacher) {
         return res.status(404).json({
           success: false,
-          message: 'El teacher especificado no existe'
+          message: 'El profesor especificado no existe'
         });
       }
       if (teacher.branch_id && effectiveSedeId && parseInt(teacher.branch_id, 10) !== parseInt(effectiveSedeId, 10)) {
@@ -271,11 +271,11 @@ const actualizarTurno = async (req, res) => {
           Branch.findByPk(teacher.branch_id),
           Branch.findByPk(effectiveSedeId)
         ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Branch #${teacher.branch_id}`;
-        const nomSedeTurno = branchTurno ? branchTurno.name : `Branch #${effectiveSedeId}`;
+        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
+        const nomSedeTurno = branchTurno ? branchTurno.name : `Sede #${effectiveSedeId}`;
         return res.status(400).json({
           success: false,
-          message: `El teacher ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
+          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
         });
       }
     }
@@ -300,14 +300,14 @@ const actualizarTurno = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Shift actualizado exitosamente',
+      message: 'Turno actualizado exitosamente',
       shift: shiftActualizado
     });
   } catch (error) {
     console.error('Error al actualizar shift:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al actualizar el shift',
+      message: 'Error interno al actualizar el turno',
       detalles: error.message
     });
   }
@@ -321,7 +321,7 @@ const toggleEstadoTurno = async (req, res) => {
     if (!shift) {
       return res.status(404).json({
         success: false,
-        message: 'Shift no encontrado'
+        message: 'Turno no encontrado'
       });
     }
 
@@ -330,14 +330,14 @@ const toggleEstadoTurno = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Shift ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
+      message: `Turno ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
       shift
     });
   } catch (error) {
     console.error('Error al cambiar status del shift:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al cambiar status del shift',
+      message: 'Error al cambiar estado del turno',
       detalles: error.message
     });
   }
@@ -351,7 +351,7 @@ const eliminarTurno = async (req, res) => {
     if (!shift) {
       return res.status(404).json({
         success: false,
-        message: 'Shift no encontrado'
+        message: 'Turno no encontrado'
       });
     }
 
@@ -359,13 +359,13 @@ const eliminarTurno = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Shift eliminado exitosamente'
+      message: 'Turno eliminado exitosamente'
     });
   } catch (error) {
     console.error('Error al eliminar shift:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al eliminar shift',
+      message: 'Error al eliminar el turno',
       detalles: error.message
     });
   }

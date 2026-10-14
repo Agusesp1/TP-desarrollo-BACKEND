@@ -70,21 +70,21 @@ const enviarMailBienvenida = async ({ name, email }) => {
  */
 const enviarMailContacto = async ({ name, email, asunto, message }) => {
   const adminEmail = process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
-  const subjectHeader = asunto ? `[Consulta Web] ${asunto}` : '[Consulta Web] Nuevo message de contacto';
+  const subjectHeader = asunto ? `[Consulta Web] ${asunto}` : '[Consulta Web] Nuevo mensaje de contacto';
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
       <h2 style="color: #4F46E5; text-align: center;">📨 Nueva Consulta desde la Web</h2>
       <div style="background-color: #F9FAFB; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0 0 10px 0;"><strong>Name:</strong> ${name}</p>
+        <p style="margin: 0 0 10px 0;"><strong>Nombre:</strong> ${name}</p>
         <p style="margin: 0 0 10px 0;"><strong>Email de contacto:</strong> <a href="mailto:${email}">${email}</a></p>
         <p style="margin: 0 0 10px 0;"><strong>Asunto:</strong> ${asunto || 'Sin asunto'}</p>
       </div>
       <div style="border-left: 4px solid #4F46E5; padding-left: 15px; margin: 20px 0; color: #333333;">
-        <p style="margin: 0; font-weight: bold;">Message:</p>
+        <p style="margin: 0; font-weight: bold;">Mensaje:</p>
         <p style="white-space: pre-wrap; margin-top: 5px;">${message}</p>
       </div>
       <p style="font-size: 12px; color: #888888; text-align: center; margin-top: 30px;">
-        Este message fue enviado desde el formulario de contacto de FitApp.
+        Este mensaje fue enviado desde el formulario de contacto de FitApp.
       </p>
     </div>
   `;

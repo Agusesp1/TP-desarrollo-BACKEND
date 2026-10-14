@@ -44,7 +44,7 @@ const obtenerActividades = async (req, res) => {
     console.error('Error al obtener activities:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener activities',
+      message: 'Error interno al obtener actividades',
       detalles: error.message
     });
   }
@@ -78,7 +78,7 @@ const obtenerActividadPorId = async (req, res) => {
     if (!activity) {
       return res.status(404).json({
         success: false,
-        message: 'Activity no encontrada'
+        message: 'Actividad no encontrada'
       });
     }
 
@@ -90,7 +90,7 @@ const obtenerActividadPorId = async (req, res) => {
     console.error('Error al obtener activity:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener la activity',
+      message: 'Error interno al obtener la actividad',
       detalles: error.message
     });
   }
@@ -103,7 +103,7 @@ const crearActividad = async (req, res) => {
   if (!name || !duration || !capacity || !dayOfWeek || !startTime || !endTime) {
     return res.status(400).json({
       success: false,
-      message: 'El name, la duración, el capacity, los días de dictado y el schedule son campos obligatorios'
+      message: 'El nombre, la duración, la capacidad, los días de dictado y el horario son campos obligatorios'
     });
   }
 
@@ -118,11 +118,11 @@ const crearActividad = async (req, res) => {
           Branch.findByPk(teacher.branch_id),
           Branch.findByPk(targetSedeId)
         ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Branch #${teacher.branch_id}`;
-        const nomSedeAct = branchAct ? branchAct.name : `Branch #${targetSedeId}`;
+        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
+        const nomSedeAct = branchAct ? branchAct.name : `Sede #${targetSedeId}`;
         return res.status(400).json({
           success: false,
-          message: `El teacher ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar activities en ${nomSedeAct}`
+          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar actividades en ${nomSedeAct}`
         });
       }
     }
@@ -169,14 +169,14 @@ const crearActividad = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Activity y schedule de dictado creados exitosamente',
+      message: 'Actividad y horario de dictado creados exitosamente',
       activity: activityCompleta
     });
   } catch (error) {
     console.error('Error al crear activity:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al crear la activity',
+      message: 'Error interno al crear la actividad',
       detalles: error.message
     });
   }
@@ -195,7 +195,7 @@ const actualizarActividad = async (req, res) => {
     if (!activity) {
       return res.status(404).json({
         success: false,
-        message: 'Activity no encontrada'
+        message: 'Actividad no encontrada'
       });
     }
 
@@ -209,11 +209,11 @@ const actualizarActividad = async (req, res) => {
           Branch.findByPk(teacher.branch_id),
           Branch.findByPk(parsedSedeId)
         ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Branch #${teacher.branch_id}`;
-        const nomSedeAct = branchAct ? branchAct.name : `Branch #${parsedSedeId}`;
+        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
+        const nomSedeAct = branchAct ? branchAct.name : `Sede #${parsedSedeId}`;
         return res.status(400).json({
           success: false,
-          message: `El teacher ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar activities en ${nomSedeAct}`
+          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar actividades en ${nomSedeAct}`
         });
       }
     }
@@ -274,14 +274,14 @@ const actualizarActividad = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Activity actualizada exitosamente',
+      message: 'Actividad actualizada exitosamente',
       activity: activityActualizada
     });
   } catch (error) {
     console.error('Error al actualizar activity:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al actualizar la activity',
+      message: 'Error interno al actualizar la actividad',
       detalles: error.message
     });
   }
@@ -295,7 +295,7 @@ const toggleEstadoActividad = async (req, res) => {
     if (!activity) {
       return res.status(404).json({
         success: false,
-        message: 'Activity no encontrada'
+        message: 'Actividad no encontrada'
       });
     }
 
@@ -304,14 +304,14 @@ const toggleEstadoActividad = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Activity ${nuevoEstado ? 'activada' : 'desactivada'} exitosamente`,
+      message: `Actividad ${nuevoEstado ? 'activada' : 'desactivada'} exitosamente`,
       activity
     });
   } catch (error) {
     console.error('Error al cambiar status de la activity:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al cambiar status de la activity',
+      message: 'Error al cambiar estado de la actividad',
       detalles: error.message
     });
   }
@@ -325,7 +325,7 @@ const eliminarActividad = async (req, res) => {
     if (!activity) {
       return res.status(404).json({
         success: false,
-        message: 'Activity no encontrada'
+        message: 'Actividad no encontrada'
       });
     }
 
@@ -333,13 +333,13 @@ const eliminarActividad = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Activity eliminada exitosamente'
+      message: 'Actividad eliminada exitosamente'
     });
   } catch (error) {
     console.error('Error al eliminar activity:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al eliminar activity',
+      message: 'Error al eliminar actividad',
       detalles: error.message
     });
   }

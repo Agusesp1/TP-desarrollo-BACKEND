@@ -12,7 +12,7 @@ const actualizarPerfil = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User no encontrado'
+        message: 'Usuario no encontrado'
       });
     }
 
@@ -42,14 +42,14 @@ const actualizarPerfil = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Profile actualizado con éxito',
+      message: 'Perfil actualizado con éxito',
       user: datosUsuario
     });
   } catch (error) {
     console.error('Error al actualizar el profile:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno del servidor al actualizar el profile',
+      message: 'Error interno del servidor al actualizar el perfil',
       detalles: error.message
     });
   }
@@ -66,7 +66,7 @@ const cambiarPassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User no encontrado'
+        message: 'Usuario no encontrado'
       });
     }
 
@@ -105,7 +105,7 @@ const eliminarPerfil = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User no encontrado'
+        message: 'Usuario no encontrado'
       });
     }
 

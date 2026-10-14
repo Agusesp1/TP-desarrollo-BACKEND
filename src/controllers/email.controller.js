@@ -6,8 +6,8 @@ const enviarCorreo = async (req, res) => {
 
   // Destinatario por defecto si no se especifica
   const destinatario = to || process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
-  const asunto = subject || 'Hello World desde GymFit API';
-  const contenidoHtml = html || '<p>Congrats on sending your <strong>first email</strong> with Resend!</p>';
+  const asunto = subject || 'Hola Mundo desde GymFit API';
+  const contenidoHtml = html || '<p>¡Felicitaciones por enviar tu <strong>primer correo</strong>!</p>';
 
   try {
     const resultado = await emailService.enviarMail({
@@ -46,7 +46,7 @@ const enviarContacto = async (req, res) => {
   if (!name || !email || !message) {
     return res.status(400).json({
       success: false,
-      message: 'Name, email y message son requeridos.'
+      message: 'Nombre, correo y mensaje son requeridos.'
     });
   }
 
@@ -61,18 +61,18 @@ const enviarContacto = async (req, res) => {
     if (!resultado.success) {
       return res.status(500).json({
         success: false,
-        message: 'No se pudo enviar el message de contacto',
+        message: 'No se pudo enviar el mensaje de contacto',
         detalles: resultado.error
       });
     }
 
     return res.json({
       success: true,
-      message: 'Message de contacto enviado con éxito',
+      message: 'Mensaje de contacto enviado con éxito',
       respuesta: resultado.data
     });
   } catch (error) {
-    console.error('Error al procesar message de contacto:', error);
+    console.error('Error al procesar mensaje de contacto:', error);
     return res.status(500).json({
       success: false,
       message: 'Error interno al procesar la consulta de contacto',

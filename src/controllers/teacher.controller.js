@@ -40,7 +40,7 @@ const obtenerProfesores = async (req, res) => {
     console.error('Error al obtener teachers:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener el listado de teachers',
+      message: 'Error interno al obtener el listado de profesores',
       detalles: error.message
     });
   }
@@ -62,7 +62,7 @@ const obtenerProfesorPorId = async (req, res) => {
     if (!teacher) {
       return res.status(404).json({
         success: false,
-        message: 'Teacher no encontrado'
+        message: 'Profesor no encontrado'
       });
     }
 
@@ -74,7 +74,7 @@ const obtenerProfesorPorId = async (req, res) => {
     console.error('Error al obtener teacher:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener el teacher',
+      message: 'Error interno al obtener el profesor',
       detalles: error.message
     });
   }
@@ -88,7 +88,7 @@ const crearProfesor = async (req, res) => {
   if (!name || !lastname || !dni || !email) {
     return res.status(400).json({
       success: false,
-      message: 'Name, lastname, DNI y correo electrónico son obligatorios'
+      message: 'Nombre, apellido, DNI y correo electrónico son obligatorios'
     });
   }
 
@@ -98,7 +98,7 @@ const crearProfesor = async (req, res) => {
     if (emailExistente) {
       return res.status(409).json({
         success: false,
-        message: 'El correo electrónico ya pertenece a otro teacher'
+        message: 'El correo electrónico ya pertenece a otro profesor'
       });
     }
 
@@ -156,14 +156,14 @@ const crearProfesor = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Teacher cargado y cuenta de user habilitada exitosamente',
+      message: 'Profesor cargado y cuenta de usuario habilitada exitosamente',
       teacher: teacherConSede || nuevoProfesor
     });
   } catch (error) {
     console.error('Error al crear teacher:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al crear el teacher',
+      message: 'Error interno al crear el profesor',
       detalles: error.message
     });
   }
@@ -179,7 +179,7 @@ const actualizarProfesor = async (req, res) => {
     if (!teacher) {
       return res.status(404).json({
         success: false,
-        message: 'Teacher no encontrado'
+        message: 'Profesor no encontrado'
       });
     }
 
@@ -189,7 +189,7 @@ const actualizarProfesor = async (req, res) => {
       if (emailExistente) {
         return res.status(409).json({
           success: false,
-          message: 'El correo electrónico ya pertenece a otro teacher'
+          message: 'El correo electrónico ya pertenece a otro profesor'
         });
       }
     }
@@ -237,14 +237,14 @@ const actualizarProfesor = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Teacher actualizado exitosamente',
+      message: 'Profesor actualizado exitosamente',
       teacher: teacherActualizado
     });
   } catch (error) {
     console.error('Error al actualizar teacher:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al actualizar el teacher',
+      message: 'Error interno al actualizar el profesor',
       detalles: error.message
     });
   }
@@ -258,7 +258,7 @@ const toggleEstadoProfesor = async (req, res) => {
     if (!teacher) {
       return res.status(404).json({
         success: false,
-        message: 'Teacher no encontrado'
+        message: 'Profesor no encontrado'
       });
     }
 
@@ -273,14 +273,14 @@ const toggleEstadoProfesor = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Teacher ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
+      message: `Profesor ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
       teacher
     });
   } catch (error) {
     console.error('Error al cambiar status del teacher:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al cambiar status del teacher',
+      message: 'Error al cambiar estado del profesor',
       detalles: error.message
     });
   }
@@ -294,7 +294,7 @@ const eliminarProfesor = async (req, res) => {
     if (!teacher) {
       return res.status(404).json({
         success: false,
-        message: 'Teacher no encontrado'
+        message: 'Profesor no encontrado'
       });
     }
 
@@ -309,13 +309,13 @@ const eliminarProfesor = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Teacher y cuenta de user eliminados exitosamente'
+      message: 'Profesor y cuenta de usuario eliminados exitosamente'
     });
   } catch (error) {
     console.error('Error al eliminar teacher:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al eliminar teacher',
+      message: 'Error al eliminar profesor',
       detalles: error.message
     });
   }
@@ -335,7 +335,7 @@ const obtenerAgendaProfesor = async (req, res) => {
     if (!teacher) {
       return res.status(404).json({
         success: false,
-        message: 'Profile de teacher no encontrado para este user'
+        message: 'Perfil de profesor no encontrado para este usuario'
       });
     }
 
@@ -388,7 +388,7 @@ const obtenerAgendaProfesor = async (req, res) => {
     console.error('Error al obtener agenda del teacher:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener la agenda del teacher',
+      message: 'Error interno al obtener la agenda del profesor',
       detalles: error.message
     });
   }

@@ -73,7 +73,7 @@ const crearReserva = async (req, res) => {
     if (date !== dateHoy) {
       return res.status(400).json({
         success: false,
-        message: 'Solo se permite reservar shifts para el día de hoy.'
+        message: 'Solo se permite reservar turnos para el día de hoy.'
       });
     }
 
@@ -82,7 +82,7 @@ const crearReserva = async (req, res) => {
     if (!user || !user.status) {
       return res.status(404).json({
         success: false,
-        message: 'User no encontrado o inactivo.'
+        message: 'Usuario no encontrado o inactivo.'
       });
     }
 
@@ -98,7 +98,7 @@ const crearReserva = async (req, res) => {
     if (!shift || !shift.status) {
       return res.status(404).json({
         success: false,
-        message: 'El shift seleccionado no existe o no se encuentra active.'
+        message: 'El turno seleccionado no existe o no se encuentra activo.'
       });
     }
 
@@ -106,7 +106,7 @@ const crearReserva = async (req, res) => {
     if (!shiftAplicaEnDia(shift.dayOfWeek, date)) {
       return res.status(400).json({
         success: false,
-        message: `Este shift (${shift.dayOfWeek}) no se dicta en el día de hoy.`
+        message: `Este turno (${shift.dayOfWeek}) no se dicta en el día de hoy.`
       });
     }
 
@@ -123,7 +123,7 @@ const crearReserva = async (req, res) => {
     if (reservationExistente) {
       return res.status(400).json({
         success: false,
-        message: 'Ya posees una reservation confirmada para este shift en el día de hoy.'
+        message: 'Ya posees una reserva confirmada para este turno en el día de hoy.'
       });
     }
 
@@ -140,7 +140,7 @@ const crearReserva = async (req, res) => {
     if (reservationsActuales >= capacityMaximo) {
       return res.status(400).json({
         success: false,
-        message: `No hay cupos disponibles. El capacity máximo de ${capacityMaximo} personas está completo.`
+        message: `No hay cupos disponibles. La capacidad máxima de ${capacityMaximo} personas está completa.`
       });
     }
 
@@ -173,7 +173,7 @@ const crearReserva = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `¡Reservation confirmada con éxito para ${shift.activity?.name || 'la clase'}!`,
+      message: `¡Reserva confirmada con éxito para ${shift.activity?.name || 'la clase'}!`,
       reservation: reservationConDetalles,
       cuposRestantes: capacityMaximo - (reservationsActuales + 1)
     });
@@ -181,7 +181,7 @@ const crearReserva = async (req, res) => {
     console.error('Error al crear reservation:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al procesar la reservation',
+      message: 'Error interno al procesar la reserva',
       detalles: error.message
     });
   }
@@ -226,7 +226,7 @@ const obtenerReservasUsuario = async (req, res) => {
     console.error('Error al obtener reservations del user:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al obtener las reservations',
+      message: 'Error al obtener las reservas',
       detalles: error.message
     });
   }
@@ -251,7 +251,7 @@ const cancelarReserva = async (req, res) => {
     if (!reservation) {
       return res.status(404).json({
         success: false,
-        message: 'Reservation no encontrada'
+        message: 'Reserva no encontrada'
       });
     }
 
@@ -259,7 +259,7 @@ const cancelarReserva = async (req, res) => {
     if (user_id && reservation.user_id.toString() !== user_id.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'No tienes permiso para cancelar esta reservation'
+        message: 'No tienes permiso para cancelar esta reserva'
       });
     }
 
@@ -268,13 +268,13 @@ const cancelarReserva = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Reservation de ${nameClase} cancelada exitosamente. Tu lugar ha sido liberado.`
+      message: `Reserva de ${nameClase} cancelada exitosamente. Tu lugar ha sido liberado.`
     });
   } catch (error) {
     console.error('Error al cancelar reservation:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al cancelar la reservation',
+      message: 'Error interno al cancelar la reserva',
       detalles: error.message
     });
   }

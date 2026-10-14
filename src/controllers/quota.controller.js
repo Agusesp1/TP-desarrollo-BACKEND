@@ -17,7 +17,7 @@ const mapearCuotaParaFront = (c) => {
   const json = typeof c.toJSON === 'function' ? c.toJSON() : c;
   return {
     ...json,
-    concepto: `Quota ${json.numero_quota} - ${json.periodo}`,
+    concepto: `Cuota ${json.numero_quota} - ${json.periodo}`,
     dateVenc: formatearFechaAR(json.date_vencimiento),
     dateLimite: formatearFechaAR(json.date_limite_payment),
     datePago: json.date_payment ? formatearFechaAR(json.date_payment) : null,
@@ -42,7 +42,7 @@ const obtenerMisCuotas = async (req, res) => {
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'Se requiere el ID del user para consultar las quotas'
+        message: 'Se requiere el ID del usuario para consultar las cuotas'
       });
     }
 
@@ -50,7 +50,7 @@ const obtenerMisCuotas = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User no encontrado'
+        message: 'Usuario no encontrado'
       });
     }
 
@@ -58,7 +58,7 @@ const obtenerMisCuotas = async (req, res) => {
     if (user.role === 'admin' || user.role === 'teacher') {
       return res.json({
         success: false,
-        message: 'Los administradores y teachers no poseen quotas asignadas.'
+        message: 'Los administradores y profesores no poseen cuotas asignadas.'
       });
     }
 
@@ -99,7 +99,7 @@ const obtenerMisCuotas = async (req, res) => {
     console.error('Error al obtener mis quotas:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al consultar las quotas del user',
+      message: 'Error interno al consultar las cuotas del usuario',
       detalles: error.message
     });
   }
@@ -168,7 +168,7 @@ const obtenerTodasCuotas = async (req, res) => {
     console.error('Error al obtener todas las quotas (admin):', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener el listado general de quotas',
+      message: 'Error interno al obtener el listado general de cuotas',
       detalles: error.message
     });
   }
@@ -206,7 +206,7 @@ const obtenerHistorialPrecios = async (req, res) => {
     console.error('Error al consultar historial de prices:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al obtener los prices programados',
+      message: 'Error interno al obtener los precios programados',
       detalles: error.message
     });
   }
@@ -222,14 +222,14 @@ const crearOActualizarPrecio = async (req, res) => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Debe ingresar un amount numérico válido y mayor a 0'
+        message: 'Debe ingresar un monto numérico válido y mayor a 0'
       });
     }
 
     if (!start_date) {
       return res.status(400).json({
         success: false,
-        message: 'La date de entrada en vigencia (start_date) es obligatoria'
+        message: 'La fecha de entrada en vigencia (start_date) es obligatoria'
       });
     }
 
@@ -261,7 +261,7 @@ const crearOActualizarPrecio = async (req, res) => {
 
       return res.json({
         success: true,
-        message: `Price para la date ${dateFormateada} actualizado exitosamente y quotas pendientes actualizadas`,
+        message: `Precio para la fecha ${dateFormateada} actualizado exitosamente y cuotas pendientes actualizadas`,
         price
       });
     }
@@ -288,14 +288,14 @@ const crearOActualizarPrecio = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Nuevo price programado registrado con éxito y quotas pendientes actualizadas',
+      message: 'Nuevo precio programado registrado con éxito y cuotas pendientes actualizadas',
       price
     });
   } catch (error) {
     console.error('Error al crear o actualizar price de quota:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al guardar el price de quota',
+      message: 'Error interno al guardar el precio de cuota',
       detalles: error.message
     });
   }
@@ -312,7 +312,7 @@ const pagarCuotaManual = async (req, res) => {
     if (!id) {
       return res.status(400).json({
         success: false,
-        message: 'El ID de la quota es obligatorio'
+        message: 'El ID de la cuota es obligatorio'
       });
     }
 
@@ -323,14 +323,14 @@ const pagarCuotaManual = async (req, res) => {
     if (!quota) {
       return res.status(404).json({
         success: false,
-        message: 'Quota no encontrada'
+        message: 'Cuota no encontrada'
       });
     }
 
     if (quota.status === 'pagado') {
       return res.status(400).json({
         success: false,
-        message: 'Esta quota ya ha sido pagada previamente',
+        message: 'Esta cuota ya ha sido pagada previamente',
         quota: mapearCuotaParaFront(quota)
       });
     }
@@ -359,14 +359,14 @@ const pagarCuotaManual = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `¡Payment de la quota ${quota.periodo} registrado exitosamente!`,
+      message: `¡Pago de la cuota ${quota.periodo} registrado exitosamente!`,
       quota: mapearCuotaParaFront(quota)
     });
   } catch (error) {
     console.error('Error al registrar payment manual:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al registrar el payment',
+      message: 'Error interno al registrar el pago',
       detalles: error.message
     });
   }
@@ -382,7 +382,7 @@ const crearPreferenciaMP = async (req, res) => {
     if (!quotaId) {
       return res.status(400).json({
         success: false,
-        message: 'El ID de la quota es obligatorio'
+        message: 'El ID de la cuota es obligatorio'
       });
     }
 
@@ -399,19 +399,19 @@ const crearPreferenciaMP = async (req, res) => {
     if (!quota) {
       return res.status(404).json({
         success: false,
-        message: 'Quota no encontrada'
+        message: 'Cuota no encontrada'
       });
     }
 
     if (quota.status === 'pagado') {
       return res.status(400).json({
         success: false,
-        message: 'Esta quota ya se encuentra pagada'
+        message: 'Esta cuota ya se encuentra pagada'
       });
     }
 
     if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
-      return res.status(500).json({ success: false, message: 'Mercado Payment no está configurado (falta Access Token).' });
+      return res.status(500).json({ success: false, message: 'Mercado Pago no está configurado (falta Access Token).' });
     }
 
     const { MercadoPagoConfig, Preference } = require('mercadopago');
@@ -486,7 +486,7 @@ const crearPreferenciaMP = async (req, res) => {
     console.error('Error al crear preferencia de Mercado Payment:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al generar preferencia de payment',
+      message: 'Error interno al generar preferencia de pago',
       detalles: error.message
     });
   }
@@ -612,7 +612,7 @@ const confirmarPagoMP = async (req, res) => {
     if (!quota) {
       return res.status(404).json({
         success: false,
-        message: 'Quota no encontrada'
+        message: 'Cuota no encontrada'
       });
     }
 
@@ -635,7 +635,7 @@ const confirmarPagoMP = async (req, res) => {
 
       return res.json({
         success: true,
-        message: 'La quota ya se encuentra pagada',
+        message: 'La cuota ya se encuentra pagada',
         quota: mapearCuotaParaFront(quota),
         user: userInfo
       });
@@ -683,7 +683,7 @@ const confirmarPagoMP = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Payment acreditado con éxito',
+      message: 'Pago acreditado con éxito',
       quota: mapearCuotaParaFront(quota),
       user: userActualizado
     });
@@ -691,7 +691,7 @@ const confirmarPagoMP = async (req, res) => {
     console.error('Error al confirmar payment de Mercado Payment:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno al confirmar el payment',
+      message: 'Error interno al confirmar el pago',
       detalles: error.message
     });
   }

@@ -75,14 +75,14 @@ const registro = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Por favor, verifica tu correo electrónico para poder iniciar sesión.',
+      message: 'Por favor, verifica tu correo electrónico para poder iniciar sesión(si no lo encuentras en bandeja de entrada, revisa la carpeta de spam).',
       user: datosUsuario
     });
   } catch (error) {
     console.error('Error en el controller de registro:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error interno del servidor al registrar el user',
+      message: 'Error interno del servidor al registrar el usuario',
       detalles: error.message
     });
   }
@@ -98,7 +98,7 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'User o contraseña inválido'
+        message: 'Usuario o contraseña inválido'
       });
     }
 
