@@ -100,7 +100,7 @@ const enviarMailContacto = async ({ name, email, asunto, message }) => {
  * Envía un correo de recuperación de contraseña.
  */
 const enviarMailRecuperacionContrasena = async (email, token) => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  const resetUrl = `${process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
       <h2 style="color: #4F46E5; text-align: center;">Recuperación de Contraseña 🔐</h2>
@@ -158,7 +158,7 @@ const enviarMail2FA = async (email, code) => {
  * Envía un correo de verificación de cuenta.
  */
 const enviarMailVerificacion = async (email, token) => {
-  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
+  const verifyUrl = `${process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
       <h2 style="color: #4F46E5; text-align: center;">Verifica tu correo electrónico ✉️</h2>

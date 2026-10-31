@@ -19,7 +19,32 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares globales
-app.use(cors()); // Permite peticiones desde el frontend de React
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite peticiones sin origen (como Postman, curl o peticiones servidor a servidor)
+    if (!origin) return callback(null, true);
+
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    const isAllowed = allowedOrigins.some((allowed) =>
+      allowed.split(',').some((singleAllowed) => singleAllowed.trim().replace(/\/+$/, '') === cleanOrigin)
+    );
+
+    if (isAllowed) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Bloqueado por CORS: El origen ${origin} no está autorizado.`));
+  },
+  credentials: true
+}));
 app.use(express.json()); // Parsea peticiones con cuerpo JSON
 
 // Route de prueba inicial
@@ -51,6 +76,7 @@ sequelize.authenticate()
   });
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor escuchando en http://localhost:${PORT}`);
+const HOST = '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Servidor escuchando en http://${HOST}:${PORT}`);
 });

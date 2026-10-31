@@ -29,7 +29,7 @@ const crearPreferenciaPago = async (req, res) => {
     const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN, options: { timeout: 5000 } });
     const preference = new Preference(client);
 
-    const frontUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const isHttp = frontUrl.startsWith('http://');
 
     // Usar httpbin.org para pasar la validación HTTPS de auto_return en entorno local.

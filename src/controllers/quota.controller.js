@@ -420,7 +420,7 @@ const crearPreferenciaMP = async (req, res) => {
 
     const title = `Gym FitApp - Quota N° ${quota.numero_quota} (${quota.periodo})`;
 
-    const frontUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const isHttp = frontUrl.startsWith('http://');
 
     // Usar httpbin.org para pasar la validación HTTPS de auto_return en entorno local.
