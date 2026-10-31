@@ -19,29 +19,36 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares globales
-const allowedOrigins = [
+const rawOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL
 ].filter(Boolean);
+
+const allowedOrigins = rawOrigins.flatMap((item) =>
+  item.split(',').map((url) => url.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, ''))
+).filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     // Permite peticiones sin origen (como Postman, curl o peticiones servidor a servidor)
     if (!origin) return callback(null, true);
 
-    const cleanOrigin = origin.replace(/\/+$/, '');
-    const isAllowed = allowedOrigins.some((allowed) =>
-      allowed.split(',').some((singleAllowed) => singleAllowed.trim().replace(/\/+$/, '') === cleanOrigin)
-    );
+    const cleanOrigin = origin.trim().replace(/\/+$/, '');
+    const isExplicitlyAllowed = allowedOrigins.includes(cleanOrigin);
+    // Permite automáticamente dominios de Render (*.onrender.com) y entornos locales
+    const isRenderDomain = cleanOrigin.endsWith('.onrender.com');
+    const isLocalhost = cleanOrigin.includes('localhost') || cleanOrigin.includes('127.0.0.1');
 
-    if (isAllowed) {
+    if (isExplicitlyAllowed || isRenderDomain || isLocalhost) {
       return callback(null, true);
     }
 
-    return callback(new Error(`Bloqueado por CORS: El origen ${origin} no está autorizado.`));
+    console.warn(`⚠️ [CORS] Origen no autorizado: "${origin}". Orígenes configurados:`, allowedOrigins);
+    return callback(null, false);
   },
   credentials: true
 }));
