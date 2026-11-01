@@ -366,6 +366,7 @@ const obtenerEstadoCobranzaUsuario = async (userId) => {
         statusCuota: 'N/A',
         demorado: false,
         alDia: true,
+        fechaVencimiento: null,
         cantVencidas: 0,
         quotasVencidas: []
       };
@@ -377,6 +378,7 @@ const obtenerEstadoCobranzaUsuario = async (userId) => {
         statusCuota: 'N/A',
         demorado: false,
         alDia: true,
+        fechaVencimiento: null,
         cantVencidas: 0,
         quotasVencidas: []
       };
@@ -385,10 +387,15 @@ const obtenerEstadoCobranzaUsuario = async (userId) => {
     // Actualizar estados de quotas
     await updateQuotasStatuses(userId);
 
-    const quotas = await Quota.findAll({
+    let quotas = await Quota.findAll({
       where: { user_id: userId },
       order: [['date_vencimiento', 'ASC'], ['numero_quota', 'ASC']]
     });
+
+    if (quotas.length === 0) {
+      const dateBase = user.enrollment_date || getFechaHoyLocal();
+      quotas = await generateInitialQuotas(userId, dateBase);
+    }
 
     const quotasVencidas = quotas
       .filter((c) => c.status === 'en demora' || c.status === 'no pagado')
@@ -415,10 +422,14 @@ const obtenerEstadoCobranzaUsuario = async (userId) => {
       demorado = false;
     }
 
+    const cuotaRelevante = quotas.find((c) => c.status !== 'pagado') || (quotas.length > 0 ? quotas[quotas.length - 1] : null);
+    const fechaVencimiento = cuotaRelevante ? (cuotaRelevante.date_vencimiento || cuotaRelevante.dateVenc) : null;
+
     return {
       statusCuota,
       demorado,
       alDia,
+      fechaVencimiento,
       cantVencidas: quotasVencidas.length,
       quotasVencidas
     };
@@ -428,6 +439,7 @@ const obtenerEstadoCobranzaUsuario = async (userId) => {
       statusCuota: 'Al Día',
       demorado: false,
       alDia: true,
+      fechaVencimiento: null,
       cantVencidas: 0,
       quotasVencidas: []
     };

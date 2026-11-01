@@ -99,6 +99,7 @@ const obtenerUsuarios = async (req, res) => {
             statusCuota: cobranza.statusCuota,
             demorado: cobranza.demorado,
             alDia: cobranza.alDia,
+            fechaVencimiento: cobranza.fechaVencimiento,
             cantCuotasVencidas: cobranza.cantVencidas,
             quotasVencidas: cobranza.quotasVencidas
           };
@@ -109,6 +110,7 @@ const obtenerUsuarios = async (req, res) => {
             statusCuota: 'N/A',
             demorado: false,
             alDia: true,
+            fechaVencimiento: null,
             cantCuotasVencidas: 0,
             quotasVencidas: []
           };
