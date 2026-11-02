@@ -215,13 +215,12 @@ const eliminarTurno = async (req, res, next) => {
   const shift = req.shift;
 
   try {
-    // Eliminar reservas asociadas previamente para mantener integridad
-    await Reservation.destroy({ where: { shift_id: shift.id } });
-    await shift.destroy();
+    // Baja lógica: se desactiva el turno para mantenimiento o fuera de servicio
+    await shift.update({ status: false });
 
     return res.json({
       success: true,
-      message: 'Turno eliminado exitosamente'
+      message: 'Turno dado de baja lógica exitosamente (pausado/fuera de servicio)'
     });
   } catch (error) {
     next(error);
