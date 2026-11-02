@@ -1,13 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const branchController = require('../controllers/branch.controller');
+const {
+  validateIdSede,
+  validateCrearSede,
+  validateActualizarSede
+} = require('../middlewares/branch.middleware');
 
-// Routes de sucursales
+// Rutas de sedes
 router.get('/', branchController.obtenerSedes);
-router.get('/:id', branchController.obtenerSedePorId);
-router.post('/', branchController.crearSede);
-router.put('/:id', branchController.actualizarSede);
-router.patch('/:id/toggle-status', branchController.toggleEstadoSede);
-router.delete('/:id', branchController.eliminarSede);
+router.get('/:id', validateIdSede, branchController.obtenerSedePorId);
+router.post('/', validateCrearSede, branchController.crearSede);
+router.put('/:id', validateIdSede, validateActualizarSede, branchController.actualizarSede);
+router.patch('/:id/toggle-status', validateIdSede, branchController.toggleEstadoSede);
+router.delete('/:id', validateIdSede, branchController.eliminarSede);
 
 module.exports = router;

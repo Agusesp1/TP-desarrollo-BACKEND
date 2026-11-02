@@ -1,18 +1,9 @@
-// Validate parámetro ID en la URL para shifts
-const validateIdTurno = (req, res, next) => {
-  const { id } = req.params;
+const Shift = require('../models/shift.model');
+const Activity = require('../models/activity.model');
+const Teacher = require('../models/teacher.model');
+const Branch = require('../models/branch.model');
+const { Op } = require('sequelize');
 
-  if (!id || isNaN(id) || parseInt(id, 10) <= 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'El ID de shift proporcionado no es válido'
-    });
-  }
-
-  next();
-};
-
-// Expresión regular para validate formato HH:MM (24 horas: 00:00 a 23:59)
 const formatoHoraRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const convertirHoraAMinutos = (horaStr) => {
@@ -21,38 +12,71 @@ const convertirHoraAMinutos = (horaStr) => {
   return h * 60 + m;
 };
 
-// Validate creación de shift
-const validateCrearTurno = (req, res, next) => {
+// Validar parámetro ID y verificar existencia del turno en BD
+const validateIdTurno = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!id || isNaN(id) || parseInt(id, 10) <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'El identificador de turno proporcionado no es válido'
+    });
+  }
+
+  try {
+    const shift = await Shift.findByPk(id, {
+      include: [
+        { model: Activity, as: 'activity' },
+        { model: Teacher, as: 'teacher' },
+        { model: Branch, as: 'branch' }
+      ]
+    });
+
+    if (!shift) {
+      return res.status(404).json({
+        success: false,
+        message: 'Turno no encontrado'
+      });
+    }
+
+    req.shift = shift;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Validar creación de turno y verificar existencia de actividad y compatibilidad
+const validateCrearTurno = async (req, res, next) => {
   const { activity_id, startTime, endTime, dayOfWeek, teacher_id, branch_id } = req.body;
 
   // 1. Campos obligatorios
   if (!activity_id || !startTime || !endTime) {
     return res.status(400).json({
       success: false,
-      message: 'La activity, el schedule de home y el schedule de fin son obligatorios'
+      message: 'La actividad, el horario de inicio y el horario de fin son obligatorios'
     });
   }
 
-  // 2. Validate ID de activity
-  if (isNaN(activity_id) || parseInt(activity_id, 10) <= 0) {
+  const actIdNum = parseInt(activity_id, 10);
+  if (isNaN(actIdNum) || actIdNum <= 0) {
     return res.status(400).json({
       success: false,
-      message: 'El ID de la activity debe ser un número entero válido'
+      message: 'El identificador de la actividad debe ser un número entero válido'
     });
   }
 
-  // 3. Validate formato de schedule de home y fin (HH:MM)
   if (!formatoHoraRegex.test(startTime.trim())) {
     return res.status(400).json({
       success: false,
-      message: 'El schedule de home debe tener el formato HH:MM (ejemplo: 08:00)'
+      message: 'El horario de inicio debe tener el formato HH:MM (ejemplo: 08:00)'
     });
   }
 
   if (!formatoHoraRegex.test(endTime.trim())) {
     return res.status(400).json({
       success: false,
-      message: 'El schedule de fin debe tener el formato HH:MM (ejemplo: 10:00)'
+      message: 'El horario de fin debe tener el formato HH:MM (ejemplo: 10:00)'
     });
   }
 
@@ -61,101 +85,138 @@ const validateCrearTurno = (req, res, next) => {
   if (finMin <= homeMin) {
     return res.status(400).json({
       success: false,
-      message: 'El schedule de fin debe ser posterior al schedule de home'
+      message: 'El horario de fin debe ser posterior al horario de inicio'
     });
   }
 
-  // 4. Validate días de la semana
-  if (dayOfWeek && (typeof dayOfWeek !== 'string' || dayOfWeek.trim().length > 100)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El día de la semana no puede superar los 100 caracteres'
-    });
-  }
+  try {
+    // 2. Verificar que la actividad exista en BD
+    const activity = await Activity.findByPk(actIdNum);
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        message: 'La actividad especificada no existe'
+      });
+    }
 
-  // 5. Validate IDs opcionales
-  if (teacher_id && (isNaN(teacher_id) || parseInt(teacher_id, 10) <= 0)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El ID del teacher debe ser un número entero válido'
-    });
-  }
+    // 3. Determinar sede efectiva
+    const effectiveSedeId = branch_id ? parseInt(branch_id, 10) : (activity.branch_id ? parseInt(activity.branch_id, 10) : null);
+    const targetProfesorId = teacher_id ? parseInt(teacher_id, 10) : null;
 
-  if (branch_id && (isNaN(branch_id) || parseInt(branch_id, 10) <= 0)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El ID de la branch debe ser un número entero válido'
-    });
-  }
+    // 4. Validar coincidencia de sede del profesor
+    if (targetProfesorId) {
+      const teacher = await Teacher.findByPk(targetProfesorId);
+      if (!teacher) {
+        return res.status(404).json({
+          success: false,
+          message: 'El profesor especificado no existe'
+        });
+      }
 
-  next();
+      if (teacher.branch_id && effectiveSedeId && parseInt(teacher.branch_id, 10) !== parseInt(effectiveSedeId, 10)) {
+        const [branchProf, branchTurno] = await Promise.all([
+          Branch.findByPk(teacher.branch_id),
+          Branch.findByPk(effectiveSedeId)
+        ]);
+        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
+        const nomSedeTurno = branchTurno ? branchTurno.name : `Sede #${effectiveSedeId}`;
+        return res.status(400).json({
+          success: false,
+          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
+        });
+      }
+    }
+
+    req.activityObj = activity;
+    req.actIdNum = actIdNum;
+    req.effectiveSedeId = effectiveSedeId;
+    req.targetProfesorId = targetProfesorId;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 
-// Validate actualización de shift
-const validateActualizarTurno = (req, res, next) => {
-  const { activity_id, startTime, endTime, dayOfWeek, teacher_id, branch_id, status } = req.body;
-
-  if (activity_id !== undefined && (isNaN(activity_id) || parseInt(activity_id, 10) <= 0)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El ID de la activity debe ser un número entero válido'
-    });
-  }
+// Validar actualización de turno y verificar compatibilidad
+const validateActualizarTurno = async (req, res, next) => {
+  const { id } = req.params;
+  const { activity_id, startTime, endTime, teacher_id, branch_id } = req.body;
+  const shift = req.shift; // Obtenido en validateIdTurno
 
   if (startTime !== undefined && !formatoHoraRegex.test(startTime.trim())) {
     return res.status(400).json({
       success: false,
-      message: 'El schedule de home debe tener el formato HH:MM (ejemplo: 08:00)'
+      message: 'El horario de inicio debe tener el formato HH:MM (ejemplo: 08:00)'
     });
   }
 
   if (endTime !== undefined && !formatoHoraRegex.test(endTime.trim())) {
     return res.status(400).json({
       success: false,
-      message: 'El schedule de fin debe tener el formato HH:MM (ejemplo: 10:00)'
+      message: 'El horario de fin debe tener el formato HH:MM (ejemplo: 10:00)'
     });
   }
 
-  if (startTime !== undefined && endTime !== undefined) {
-    const homeMin = convertirHoraAMinutos(startTime);
-    const finMin = convertirHoraAMinutos(endTime);
-    if (finMin <= homeMin) {
-      return res.status(400).json({
-        success: false,
-        message: 'El schedule de fin debe ser posterior al schedule de home'
-      });
+  const horaInicioEval = startTime || shift.startTime;
+  const horaFinEval = endTime || shift.endTime;
+  const homeMin = convertirHoraAMinutos(horaInicioEval);
+  const finMin = convertirHoraAMinutos(horaFinEval);
+
+  if (finMin <= homeMin) {
+    return res.status(400).json({
+      success: false,
+      message: 'El horario de fin debe ser posterior al horario de inicio'
+    });
+  }
+
+  try {
+    const targetActividadId = activity_id !== undefined ? parseInt(activity_id, 10) : shift.activity_id;
+    let activityObj = null;
+    if (targetActividadId) {
+      activityObj = await Activity.findByPk(targetActividadId);
+      if (!activityObj) {
+        return res.status(404).json({
+          success: false,
+          message: 'La actividad especificada no existe'
+        });
+      }
     }
-  }
 
-  if (dayOfWeek !== undefined && (typeof dayOfWeek !== 'string' || dayOfWeek.trim().length > 100)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El día de la semana no puede superar los 100 caracteres'
-    });
-  }
+    const targetSedeId = branch_id !== undefined ? (branch_id ? parseInt(branch_id, 10) : null) : shift.branch_id;
+    const effectiveSedeId = targetSedeId || (activityObj?.branch_id ? parseInt(activityObj.branch_id, 10) : null);
+    const targetProfesorId = teacher_id !== undefined ? (teacher_id ? parseInt(teacher_id, 10) : null) : shift.teacher_id;
 
-  if (teacher_id !== undefined && teacher_id !== null && (isNaN(teacher_id) || parseInt(teacher_id, 10) <= 0)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El ID del teacher debe ser un número entero válido'
-    });
-  }
+    if (targetProfesorId) {
+      const teacher = await Teacher.findByPk(targetProfesorId);
+      if (!teacher) {
+        return res.status(404).json({
+          success: false,
+          message: 'El profesor especificado no existe'
+        });
+      }
+      if (teacher.branch_id && effectiveSedeId && parseInt(teacher.branch_id, 10) !== parseInt(effectiveSedeId, 10)) {
+        const [branchProf, branchTurno] = await Promise.all([
+          Branch.findByPk(teacher.branch_id),
+          Branch.findByPk(effectiveSedeId)
+        ]);
+        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
+        const nomSedeTurno = branchTurno ? branchTurno.name : `Sede #${effectiveSedeId}`;
+        return res.status(400).json({
+          success: false,
+          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
+        });
+      }
+    }
 
-  if (branch_id !== undefined && branch_id !== null && (isNaN(branch_id) || parseInt(branch_id, 10) <= 0)) {
-    return res.status(400).json({
-      success: false,
-      message: 'El ID de la branch debe ser un número entero válido'
-    });
-  }
+    req.targetActividadId = targetActividadId;
+    req.effectiveSedeId = effectiveSedeId;
+    req.targetProfesorId = targetProfesorId;
 
-  if (status !== undefined && typeof status !== 'boolean') {
-    return res.status(400).json({
-      success: false,
-      message: 'El status debe ser un valor booleano (true o false)'
-    });
+    next();
+  } catch (error) {
+    next(error);
   }
-
-  next();
 };
 
 module.exports = {

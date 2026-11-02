@@ -6,7 +6,7 @@ const Shift = require('../models/shift.model');
 const quotaService = require('../services/quota.service');
 
 // Obtener estadísticas generales para el panel de administración
-const obtenerEstadisticas = async (req, res) => {
+const obtenerEstadisticas = async (req, res, next) => {
   try {
     const [
       totalSocios,
@@ -45,24 +45,18 @@ const obtenerEstadisticas = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error al obtener estadísticas del panel admin:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al obtener estadísticas',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Obtener listado de clients/members y users en general con información de quotas
-const obtenerUsuarios = async (req, res) => {
+// Obtener listado de socios y usuarios con información de cuotas
+const obtenerUsuarios = async (req, res, next) => {
   try {
-    // Sincronizar estados de las cuotas antes de evaluar cobranza
     await quotaService.updateQuotasStatuses();
 
     const { category, status } = req.query;
     const whereClause = { role: 'user' };
-    
+
     if (category) {
       whereClause.category = category;
     }
@@ -81,10 +75,7 @@ const obtenerUsuarios = async (req, res) => {
         const jsonUser = user.toJSON();
 
         if (user.role === 'user') {
-          // Evaluar cobranza de user/cliente
           const cobranza = await quotaService.obtenerEstadoCobranzaUsuario(user.id);
-
-          // Si tiene quotas 'no pagado', sincronizar o reflejar si está active o desactivado por falta de payment
           let statusActual = user.status;
           if (cobranza.statusCuota === 'Con Deuda') {
             if (user.status) {
@@ -104,7 +95,6 @@ const obtenerUsuarios = async (req, res) => {
             quotasVencidas: cobranza.quotasVencidas
           };
         } else {
-          // Administradores y teachers no poseen quotas
           return {
             ...jsonUser,
             statusCuota: 'N/A',
@@ -123,27 +113,15 @@ const obtenerUsuarios = async (req, res) => {
       users: usersConEstadoCuotas
     });
   } catch (error) {
-    console.error('Error al obtener users:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al obtener usuarios',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Cambiar status active/inactivo de un user
-const toggleEstadoUsuario = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
+// Cambiar estado activo/inactivo de un usuario (validado previamente por middleware)
+const toggleEstadoUsuario = async (req, res, next) => {
+  const user = req.targetUser;
 
+  try {
     const nuevoEstado = !user.status;
     await user.update({ status: nuevoEstado });
 
@@ -155,12 +133,7 @@ const toggleEstadoUsuario = async (req, res) => {
       user: datosUsuario
     });
   } catch (error) {
-    console.error('Error al cambiar status del user:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al cambiar el estado del usuario',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 

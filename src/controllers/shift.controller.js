@@ -4,8 +4,8 @@ const Teacher = require('../models/teacher.model');
 const Branch = require('../models/branch.model');
 const Reservation = require('../models/reservation.model');
 
-// Obtener todos los shifts con información real de cupos y reservations
-const obtenerTurnos = async (req, res) => {
+// Obtener todos los turnos con información real de cupos y reservas
+const obtenerTurnos = async (req, res, next) => {
   try {
     const { activity_id, branch_id, dayOfWeek, soloActivos, date, user_id, page, limit } = req.query;
     const whereClause = {};
@@ -15,7 +15,6 @@ const obtenerTurnos = async (req, res) => {
     if (dayOfWeek) whereClause.dayOfWeek = dayOfWeek;
     if (soloActivos === 'true') whereClause.status = true;
 
-    // Date a consultar (por defecto la date local del servidor)
     const d = new Date();
     const dateConsulta = date || `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -72,13 +71,13 @@ const obtenerTurnos = async (req, res) => {
       limitNum = shifts.length || 10;
     }
 
-    const shiftsFormateados = shifts.map(t => {
+    const shiftsFormateados = shifts.map((t) => {
       const shiftJson = t.toJSON();
       const reservations = shiftJson.reservations || [];
       const cupos_ocupados = reservations.length;
       const capacity_maximo = shiftJson.activity?.capacity || 20;
       const cupos_disponibles = Math.max(0, capacity_maximo - cupos_ocupados);
-      const miReserva = user_id ? reservations.find(r => r.user_id.toString() === user_id.toString()) : null;
+      const miReserva = user_id ? reservations.find((r) => r.user_id.toString() === user_id.toString()) : null;
 
       return {
         ...shiftJson,
@@ -104,106 +103,40 @@ const obtenerTurnos = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error al obtener turnos:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener los turnos',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Obtener shift por ID
-const obtenerTurnoPorId = async (req, res) => {
-  const { id } = req.params;
+// Obtener turno por ID (validado y provisto por middleware)
+const obtenerTurnoPorId = async (req, res, next) => {
   try {
-    const shift = await Shift.findByPk(id, {
-      include: [
-        { model: Activity, as: 'activity' },
-        { model: Teacher, as: 'teacher' },
-        { model: Branch, as: 'branch' }
-      ]
-    });
-
-    if (!shift) {
-      return res.status(404).json({
-        success: false,
-        message: 'Turno no encontrado'
-      });
-    }
-
     return res.json({
       success: true,
-      shift
+      shift: req.shift
     });
   } catch (error) {
-    console.error('Error al obtener shift:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener el turno',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Crear nuevo shift (dependiente de una activity)
-const crearTurno = async (req, res) => {
-  const { activity_id, startTime, endTime, dayOfWeek, teacher_id, branch_id } = req.body;
-
-  if (!activity_id || !startTime || !endTime) {
-    return res.status(400).json({
-      success: false,
-      message: 'La actividad, el horario de inicio y el horario de fin son campos obligatorios'
-    });
-  }
+// Crear nuevo turno (validado previamente por middleware)
+const crearTurno = async (req, res, next) => {
+  const { startTime, endTime, dayOfWeek } = req.body;
+  const actIdNum = req.actIdNum;
+  const effectiveSedeId = req.effectiveSedeId;
+  const targetProfesorId = req.targetProfesorId;
 
   try {
-    // Validate que la activity exista
-    const activity = await Activity.findByPk(activity_id);
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: 'La actividad especificada no existe'
-      });
-    }
-
-    // Determinar la branch efectiva (del shift o de la activity)
-    const effectiveSedeId = branch_id ? parseInt(branch_id, 10) : (activity.branch_id ? parseInt(activity.branch_id, 10) : null);
-
-    // Validate que el teacher asignado coincida con la branch de la activity/shift
-    if (teacher_id) {
-      const teacher = await Teacher.findByPk(teacher_id);
-      if (!teacher) {
-        return res.status(404).json({
-          success: false,
-          message: 'El profesor especificado no existe'
-        });
-      }
-      if (teacher.branch_id && effectiveSedeId && parseInt(teacher.branch_id, 10) !== parseInt(effectiveSedeId, 10)) {
-        const [branchProf, branchTurno] = await Promise.all([
-          Branch.findByPk(teacher.branch_id),
-          Branch.findByPk(effectiveSedeId)
-        ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
-        const nomSedeTurno = branchTurno ? branchTurno.name : `Sede #${effectiveSedeId}`;
-        return res.status(400).json({
-          success: false,
-          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
-        });
-      }
-    }
-
     const nuevoTurno = await Shift.create({
-      activity_id: parseInt(activity_id, 10),
+      activity_id: actIdNum,
       startTime: startTime.trim(),
       endTime: endTime.trim(),
       dayOfWeek: dayOfWeek || 'Lunes',
-      teacher_id: teacher_id ? parseInt(teacher_id, 10) : null,
+      teacher_id: targetProfesorId,
       branch_id: effectiveSedeId,
       status: true
     });
 
-    // Obtener shift con relaciones para retornar al frontend
     const shiftConRelaciones = await Shift.findByPk(nuevoTurno.id, {
       include: [
         { model: Activity, as: 'activity' },
@@ -218,68 +151,19 @@ const crearTurno = async (req, res) => {
       shift: shiftConRelaciones || nuevoTurno
     });
   } catch (error) {
-    console.error('Error al crear shift:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al crear el turno',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Actualizar shift
-const actualizarTurno = async (req, res) => {
-  const { id } = req.params;
-  const { activity_id, startTime, endTime, dayOfWeek, teacher_id, branch_id, status } = req.body;
+// Actualizar turno (validado previamente por middleware)
+const actualizarTurno = async (req, res, next) => {
+  const shift = req.shift;
+  const { startTime, endTime, dayOfWeek, status } = req.body;
+  const targetActividadId = req.targetActividadId;
+  const effectiveSedeId = req.effectiveSedeId;
+  const targetProfesorId = req.targetProfesorId;
 
   try {
-    const shift = await Shift.findByPk(id);
-    if (!shift) {
-      return res.status(404).json({
-        success: false,
-        message: 'Turno no encontrado'
-      });
-    }
-
-    const targetActividadId = activity_id !== undefined ? parseInt(activity_id, 10) : shift.activity_id;
-    let activityObj = null;
-    if (targetActividadId) {
-      activityObj = await Activity.findByPk(targetActividadId);
-      if (!activityObj) {
-        return res.status(404).json({
-          success: false,
-          message: 'La actividad especificada no existe'
-        });
-      }
-    }
-
-    const targetSedeId = branch_id !== undefined ? (branch_id ? parseInt(branch_id, 10) : null) : shift.branch_id;
-    const effectiveSedeId = targetSedeId || (activityObj?.branch_id ? parseInt(activityObj.branch_id, 10) : null);
-    const targetProfesorId = teacher_id !== undefined ? (teacher_id ? parseInt(teacher_id, 10) : null) : shift.teacher_id;
-
-    // Validate coincidencia de branch del teacher
-    if (targetProfesorId) {
-      const teacher = await Teacher.findByPk(targetProfesorId);
-      if (!teacher) {
-        return res.status(404).json({
-          success: false,
-          message: 'El profesor especificado no existe'
-        });
-      }
-      if (teacher.branch_id && effectiveSedeId && parseInt(teacher.branch_id, 10) !== parseInt(effectiveSedeId, 10)) {
-        const [branchProf, branchTurno] = await Promise.all([
-          Branch.findByPk(teacher.branch_id),
-          Branch.findByPk(effectiveSedeId)
-        ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
-        const nomSedeTurno = branchTurno ? branchTurno.name : `Sede #${effectiveSedeId}`;
-        return res.status(400).json({
-          success: false,
-          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar clases en ${nomSedeTurno}`
-        });
-      }
-    }
-
     await shift.update({
       activity_id: targetActividadId,
       startTime: startTime !== undefined ? startTime.trim() : shift.startTime,
@@ -290,7 +174,7 @@ const actualizarTurno = async (req, res) => {
       status: status !== undefined ? status : shift.status
     });
 
-    const shiftActualizado = await Shift.findByPk(id, {
+    const shiftActualizado = await Shift.findByPk(shift.id, {
       include: [
         { model: Activity, as: 'activity' },
         { model: Teacher, as: 'teacher' },
@@ -304,27 +188,15 @@ const actualizarTurno = async (req, res) => {
       shift: shiftActualizado
     });
   } catch (error) {
-    console.error('Error al actualizar turno:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al actualizar el turno',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Toggle status del shift
-const toggleEstadoTurno = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const shift = await Shift.findByPk(id);
-    if (!shift) {
-      return res.status(404).json({
-        success: false,
-        message: 'Turno no encontrado'
-      });
-    }
+// Toggle de estado del turno (validado por middleware)
+const toggleEstadoTurno = async (req, res, next) => {
+  const shift = req.shift;
 
+  try {
     const nuevoEstado = !shift.status;
     await shift.update({ status: nuevoEstado });
 
@@ -334,27 +206,17 @@ const toggleEstadoTurno = async (req, res) => {
       shift
     });
   } catch (error) {
-    console.error('Error al cambiar status del shift:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al cambiar estado del turno',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Eliminar shift
-const eliminarTurno = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const shift = await Shift.findByPk(id);
-    if (!shift) {
-      return res.status(404).json({
-        success: false,
-        message: 'Turno no encontrado'
-      });
-    }
+// Eliminar turno (validado por middleware)
+const eliminarTurno = async (req, res, next) => {
+  const shift = req.shift;
 
+  try {
+    // Eliminar reservas asociadas previamente para mantener integridad
+    await Reservation.destroy({ where: { shift_id: shift.id } });
     await shift.destroy();
 
     return res.json({
@@ -362,12 +224,7 @@ const eliminarTurno = async (req, res) => {
       message: 'Turno eliminado exitosamente'
     });
   } catch (error) {
-    console.error('Error al eliminar shift:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al eliminar el turno',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 

@@ -72,6 +72,10 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/quotas', quotaRoutes);
 app.use('/api/payments', paymentRoutes);
 
+// Middleware global de manejo de errores (debe ir después de todas las rutas)
+const errorHandler = require('./middlewares/error.middleware');
+app.use(errorHandler);
+
 // Probar conexión a la base de datos con Sequelize e inicializar datos al iniciar el servidor
 sequelize.authenticate()
   .then(async () => {

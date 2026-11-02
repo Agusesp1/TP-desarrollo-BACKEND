@@ -1,40 +1,15 @@
-const { Op } = require('sequelize');
 const User = require('../models/user.model');
 
-// Actualizar información del profile del user con Sequelize
-const actualizarPerfil = async (req, res) => {
-  const { id } = req.params;
-  const { name, lastname, email } = req.body;
+// Actualizar información del perfil del usuario (validado previamente por middleware)
+const actualizarPerfil = async (req, res, next) => {
+  const user = req.targetUser;
+  const { name, lastname } = req.body;
+  const email = req.emailNormalizado;
 
   try {
-    // 1. Verificar que el user exista
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    // 2. Verificar que el email no pertenezca a otro user
-    const emailEnUso = await User.findOne({
-      where: {
-        email,
-        id: { [Op.ne]: id }
-      }
-    });
-
-    if (emailEnUso) {
-      return res.status(409).json({
-        success: false,
-        message: 'El correo electrónico ya está en uso por otra cuenta'
-      });
-    }
-
-    // 3. Actualizar el profile con Sequelize
     await user.update({
-      name,
-      lastname,
+      name: name.trim(),
+      lastname: lastname.trim(),
       email
     });
 
@@ -46,40 +21,16 @@ const actualizarPerfil = async (req, res) => {
       user: datosUsuario
     });
   } catch (error) {
-    console.error('Error al actualizar el profile:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor al actualizar el perfil',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Cambiar la contraseña del user con Sequelize
-const cambiarPassword = async (req, res) => {
-  const { id } = req.params;
-  const { actualPassword, nuevaPassword } = req.body;
+// Cambiar la contraseña del usuario (validada previamente por middleware)
+const cambiarPassword = async (req, res, next) => {
+  const user = req.targetUser;
+  const { nuevaPassword } = req.body;
 
   try {
-    // 1. Buscar user por ID
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    // 2. Verificar contraseña actual de forma segura con bcrypt
-    const esPasswordValida = await user.validatePassword(actualPassword);
-    if (!esPasswordValida) {
-      return res.status(401).json({
-        success: false,
-        message: 'La contraseña actual ingresada es incorrecta'
-      });
-    }
-
-    // 3. Actualizar contraseña con Sequelize
     await user.update({ password: nuevaPassword });
 
     return res.json({
@@ -87,35 +38,15 @@ const cambiarPassword = async (req, res) => {
       message: 'Contraseña actualizada exitosamente'
     });
   } catch (error) {
-    console.error('Error al cambiar la contraseña:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor al cambiar la contraseña',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Dar de baja lógica a la cuenta de user (status = false) con Sequelize
-const eliminarPerfil = async (req, res) => {
-  const { id } = req.params;
+// Dar de baja lógica a la cuenta de usuario (validada previamente por middleware)
+const eliminarPerfil = async (req, res, next) => {
+  const user = req.targetUser;
 
   try {
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    if (!user.status) {
-      return res.status(400).json({
-        success: false,
-        message: 'La cuenta ya ha sido dada de baja previamente'
-      });
-    }
-
     await user.update({ status: false });
 
     return res.json({
@@ -123,17 +54,12 @@ const eliminarPerfil = async (req, res) => {
       message: 'La cuenta ha sido dada de baja exitosamente'
     });
   } catch (error) {
-    console.error('Error al dar de baja el profile:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor al eliminar la cuenta',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
 // Obtener usuarios con filtros
-const getUsers = async (req, res) => {
+const getUsers = async (req, res, next) => {
   try {
     const { category, status } = req.query;
     const whereClause = { role: 'user' };
@@ -156,12 +82,7 @@ const getUsers = async (req, res) => {
       users
     });
   } catch (error) {
-    console.error('Error al obtener usuarios:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al obtener usuarios',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 

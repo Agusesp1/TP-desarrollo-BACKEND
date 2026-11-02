@@ -4,7 +4,7 @@ const PriceCuota = require('../models/priceCuota.model');
 const User = require('../models/user.model');
 const quotaService = require('../services/quota.service');
 
-// Helper para formatear date a DD/MM/YYYY para el frontend
+// Helper para formatear fecha a DD/MM/YYYY para el frontend
 const formatearFechaAR = (date) => {
   if (!date) return null;
   const str = quotaService.aFechaStr(date);
@@ -12,7 +12,7 @@ const formatearFechaAR = (date) => {
   return `${d}/${m}/${y}`;
 };
 
-// Formatea el objeto quota con campos enriquecidos para la interfaz de user
+// Formatea el objeto cuota con campos enriquecidos para la interfaz
 const mapearCuotaParaFront = (c) => {
   const json = typeof c.toJSON === 'function' ? c.toJSON() : c;
   return {
@@ -25,47 +25,15 @@ const mapearCuotaParaFront = (c) => {
   };
 };
 
-/**
- * Obtener quotas del user autenticado o solicitado por ID.
- * Asegura la existencia de las quotas del month y actualiza estados de vencimiento / mora.
- */
-const obtenerMisCuotas = async (req, res) => {
+// Obtener cuotas del usuario autenticado (validado previamente por middleware)
+const obtenerMisCuotas = async (req, res, next) => {
+  const userId = req.targetUserId;
+  const user = req.targetUser;
+
   try {
-    const userId =
-      req.user?.id ||
-      req.params.user_id ||
-      req.query.user_id ||
-      req.body.user_id ||
-      req.query.userId ||
-      req.body.userId;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requiere el ID del usuario para consultar las cuotas'
-      });
-    }
-
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
-    }
-
-    // Los administradores y teachers no poseen quotas asignadas
-    if (user.role === 'admin' || user.role === 'teacher') {
-      return res.json({
-        success: false,
-        message: 'Los administradores y profesores no poseen cuotas asignadas.'
-      });
-    }
-
-    // Asegurar que el user tenga sus quotas al día y generadas
+    // Asegurar que el usuario tenga sus cuotas generadas y actualizadas
     await quotaService.asegurarCuotasMensuales(userId);
 
-    // Obtener todas las quotas del user
     const todasLasCuotas = await Quota.findAll({
       where: { user_id: userId },
       order: [['numero_quota', 'ASC']]
@@ -96,23 +64,13 @@ const obtenerMisCuotas = async (req, res) => {
       total: quotasMapeadas.length
     });
   } catch (error) {
-    console.error('Error al obtener mis quotas:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al consultar las cuotas del usuario',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-/**
- * Obtener todas las quotas de los clients/users (Vista de Administración).
- * Solo incluye quotas de users con role 'user'.
- * Si 'todas' !== 'true', devuelve únicamente quotas vencidas (en demora o no pagado).
- */
-const obtenerTodasCuotas = async (req, res) => {
+// Obtener todas las cuotas de los socios (panel de administración)
+const obtenerTodasCuotas = async (req, res, next) => {
   try {
-    // Actualizar estados generales previamente
     await quotaService.updateQuotasStatuses();
 
     const { status, periodo, user_id, todas, soloVencidas } = req.query;
@@ -121,18 +79,13 @@ const obtenerTodasCuotas = async (req, res) => {
     if (status && status !== 'todos') {
       whereClause.status = status;
     } else if (status === 'todos' || todas === 'true') {
-      // Devolver todas las quotas sin filtrar por status
+      // Devolver todas las cuotas sin filtrar por status
     } else if (soloVencidas === 'true' || todas !== 'true') {
-      // Filtrar únicamente quotas vencidas ('en demora' o 'no pagado')
       whereClause.status = { [Op.in]: ['en demora', 'no pagado'] };
     }
 
-    if (periodo) {
-      whereClause.periodo = periodo;
-    }
-    if (user_id) {
-      whereClause.user_id = user_id;
-    }
+    if (periodo) whereClause.periodo = periodo;
+    if (user_id) whereClause.user_id = user_id;
 
     const quotas = await Quota.findAll({
       where: whereClause,
@@ -165,33 +118,24 @@ const obtenerTodasCuotas = async (req, res) => {
       quotas: quotasMapeadas
     });
   } catch (error) {
-    console.error('Error al obtener todas las quotas (admin):', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener el listado general de cuotas',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-/**
- * Obtener historial de prices programados y el price actualmente vigente.
- */
-const obtenerHistorialPrecios = async (req, res) => {
+// Obtener historial de precios y el precio vigente
+const obtenerHistorialPrecios = async (req, res, next) => {
   try {
     const prices = await PriceCuota.findAll({
       order: [['start_date', 'DESC']]
     });
 
     const hoyStr = quotaService.getFechaHoyLocal();
-    
-    // Encontrar el objeto completo del price vigente hoy
-    let priceVigenteHoyObj = prices.find(p => p.active && p.start_date <= hoyStr);
-    
+    let priceVigenteHoyObj = prices.find((p) => p.active && p.start_date <= hoyStr);
+
     if (!priceVigenteHoyObj) {
-      priceVigenteHoyObj = prices.find(p => p.active);
+      priceVigenteHoyObj = prices.find((p) => p.active);
     }
-    
+
     if (!priceVigenteHoyObj) {
       priceVigenteHoyObj = { amount: 18000.00, start_date: hoyStr, description: 'Tarifa general por defecto' };
     }
@@ -203,39 +147,17 @@ const obtenerHistorialPrecios = async (req, res) => {
       prices
     });
   } catch (error) {
-    console.error('Error al consultar historial de prices:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener los precios programados',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-/**
- * Crear o actualizar un price de quota programado con start_date.
- */
-const crearOActualizarPrecio = async (req, res) => {
+// Crear o actualizar un precio programado (validado previamente por middleware)
+const crearOActualizarPrecio = async (req, res, next) => {
+  const { amount, start_date, description, active } = req.body;
+
   try {
-    const { amount, start_date, description, active } = req.body;
-
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Debe ingresar un monto numérico válido y mayor a 0'
-      });
-    }
-
-    if (!start_date) {
-      return res.status(400).json({
-        success: false,
-        message: 'La fecha de entrada en vigencia (start_date) es obligatoria'
-      });
-    }
-
     const dateFormateada = quotaService.aFechaStr(start_date);
 
-    // Buscar si ya existe un price configurado exactamente para esa date
     let price = await PriceCuota.findOne({
       where: { start_date: dateFormateada }
     });
@@ -246,35 +168,16 @@ const crearOActualizarPrecio = async (req, res) => {
         description: description || price.description,
         active: active !== undefined ? active : price.active
       });
-
-      // Actualizar el amount de TODAS las quotas que aún no estén pagadas
-      const quotasPendientes = await Quota.findAll({
-        where: { status: { [Op.ne]: 'pagado' } }
-      });
-
-      for (const quota of quotasPendientes) {
-        const nuevoMonto = await quotaService.obtenerPrecioVigenteParaFecha(quota.date_vencimiento);
-        if (Number(quota.amount) !== Number(nuevoMonto)) {
-          await quota.update({ amount: nuevoMonto });
-        }
-      }
-
-      return res.json({
-        success: true,
-        message: `Precio para la fecha ${dateFormateada} actualizado exitosamente y cuotas pendientes actualizadas`,
-        price
+    } else {
+      price = await PriceCuota.create({
+        amount: Number(amount),
+        start_date: dateFormateada,
+        description: description || `Precio configurado para vigencia desde ${dateFormateada}`,
+        active: active !== undefined ? active : true
       });
     }
 
-    price = await PriceCuota.create({
-      amount: Number(amount),
-      start_date: dateFormateada,
-      description: description || `Price configurado para vigencia desde ${dateFormateada}`,
-      active: active !== undefined ? active : true
-    });
-
-    // Actualizar el amount de TODAS las quotas que aún no estén pagadas
-    // calculando su price vigente según su date de vencimiento
+    // Actualizar el monto de todas las cuotas pendientes
     const quotasPendientes = await Quota.findAll({
       where: { status: { [Op.ne]: 'pagado' } }
     });
@@ -288,53 +191,20 @@ const crearOActualizarPrecio = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Nuevo precio programado registrado con éxito y cuotas pendientes actualizadas',
+      message: `Precio para la fecha ${dateFormateada} registrado con éxito y cuotas pendientes actualizadas`,
       price
     });
   } catch (error) {
-    console.error('Error al crear o actualizar price de quota:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al guardar el precio de cuota',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-/**
- * Pagar quota de forma manual (administración o simulación directa).
- */
-const pagarCuotaManual = async (req, res) => {
+// Pagar cuota de forma manual (validada previamente por middleware)
+const pagarCuotaManual = async (req, res, next) => {
+  const quota = req.quota;
+  const { metodo_payment, receipt, date_payment } = req.body;
+
   try {
-    const id = req.params.id || req.body.quota_id || req.body.id;
-    const { metodo_payment, receipt, date_payment } = req.body;
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: 'El ID de la cuota es obligatorio'
-      });
-    }
-
-    const quota = await Quota.findByPk(id, {
-      include: [{ model: User, as: 'user' }]
-    });
-
-    if (!quota) {
-      return res.status(404).json({
-        success: false,
-        message: 'Cuota no encontrada'
-      });
-    }
-
-    if (quota.status === 'pagado') {
-      return res.status(400).json({
-        success: false,
-        message: 'Esta cuota ya ha sido pagada previamente',
-        quota: mapearCuotaParaFront(quota)
-      });
-    }
-
     const numComprobante =
       receipt ||
       `COMP-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -342,11 +212,10 @@ const pagarCuotaManual = async (req, res) => {
     await quota.update({
       status: 'pagado',
       date_payment: date_payment || new Date(),
-      metodo_payment: metodo_payment || 'Payment Manual / Caja',
+      metodo_payment: metodo_payment || 'Pago Manual / Caja',
       receipt: numComprobante
     });
 
-    // Si el user estaba desactivado por falta de payment y ya no tiene quotas con deuda, reactivarlo
     if (quota.user_id) {
       const cobranza = await quotaService.obtenerEstadoCobranzaUsuario(quota.user_id);
       if (cobranza.statusCuota !== 'Con Deuda') {
@@ -363,74 +232,28 @@ const pagarCuotaManual = async (req, res) => {
       quota: mapearCuotaParaFront(quota)
     });
   } catch (error) {
-    console.error('Error al registrar payment manual:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al registrar el pago',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-/**
- * Preparación de Preferencia para Mercado Payment (SDK / Simulación compatible).
- */
-const crearPreferenciaMP = async (req, res) => {
+// Preparación de Preferencia para Mercado Pago (validada previamente por middleware)
+const crearPreferenciaMP = async (req, res, next) => {
+  const quota = req.quota;
+
   try {
-    const quotaId = req.params.id || req.body.quota_id || req.body.id;
-
-    if (!quotaId) {
-      return res.status(400).json({
-        success: false,
-        message: 'El ID de la cuota es obligatorio'
-      });
-    }
-
-    const quota = await Quota.findByPk(quotaId, {
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'lastname', 'email', 'dni']
-        }
-      ]
-    });
-
-    if (!quota) {
-      return res.status(404).json({
-        success: false,
-        message: 'Cuota no encontrada'
-      });
-    }
-
-    if (quota.status === 'pagado') {
-      return res.status(400).json({
-        success: false,
-        message: 'Esta cuota ya se encuentra pagada'
-      });
-    }
-
-    if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
-      return res.status(500).json({ success: false, message: 'Mercado Pago no está configurado (falta Access Token).' });
-    }
-
     const { MercadoPagoConfig, Preference } = require('mercadopago');
     const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
     const preference = new Preference(client);
 
-    const title = `Gym FitApp - Quota N° ${quota.numero_quota} (${quota.periodo})`;
-
+    const title = `Gym FitApp - Cuota N° ${quota.numero_quota} (${quota.periodo})`;
     const frontUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const isHttp = frontUrl.startsWith('http://');
 
-    // Usar httpbin.org para pasar la validación HTTPS de auto_return en entorno local.
-    // Incrustamos el ID de la quota en la URL codificada para que el frontend pueda recibirlo,
-    // ya que httpbin descarta los parámetros que Mercado Payment añade al final.
     const getBackUrl = (path) => {
       const target = `${frontUrl}${path}`;
       if (isHttp) {
-        const targetWithParams = target.includes('?') 
-          ? `${target}&external_reference=${quota.id}` 
+        const targetWithParams = target.includes('?')
+          ? `${target}&external_reference=${quota.id}`
           : `${target}?external_reference=${quota.id}`;
         return `https://httpbin.org/redirect-to?url=${encodeURIComponent(targetWithParams)}`;
       }
@@ -441,16 +264,16 @@ const crearPreferenciaMP = async (req, res) => {
       items: [
         {
           id: quota.id.toString(),
-          title: title,
+          title,
           quantity: 1,
           unit_price: Number(quota.amount),
-          currency_id: 'ARS',
+          currency_id: 'ARS'
         }
       ],
       payer: {
-        name: quota.user?.name || 'Member',
+        name: quota.user?.name || 'Socio',
         surname: quota.user?.lastname || 'FitApp',
-        email: quota.user?.email || 'member@gymfit.com',
+        email: quota.user?.email || 'socio@gymfit.com'
       },
       back_urls: {
         success: getBackUrl('/user?payment=success&tab=quotas'),
@@ -463,10 +286,7 @@ const crearPreferenciaMP = async (req, res) => {
     };
 
     const response = await preference.create({ body });
-
-    await quota.update({
-      mp_preference_id: response.id
-    });
+    await quota.update({ mp_preference_id: response.id });
 
     return res.json({
       success: true,
@@ -475,7 +295,7 @@ const crearPreferenciaMP = async (req, res) => {
       sandbox_init_point: response.sandbox_init_point,
       quota_id: quota.id,
       amount: quota.amount,
-      title: title,
+      title,
       member: {
         name: `${quota.user?.name || ''} ${quota.user?.lastname || ''}`.trim(),
         email: quota.user?.email
@@ -483,40 +303,33 @@ const crearPreferenciaMP = async (req, res) => {
       quota: mapearCuotaParaFront(quota)
     });
   } catch (error) {
-    console.error('Error al crear preferencia de Mercado Payment:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al generar preferencia de pago',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-/**
- * Webhook y procesamiento de payment aprobado de Mercado Payment.
- */
-const webhookMercadoPago = async (req, res) => {
+// Webhook de Mercado Pago
+const webhookMercadoPago = async (req, res, next) => {
   const { query, body } = req;
   const topic = query.topic || query.type || body?.type;
-  
+
   try {
     if (topic === 'payment' || topic === 'payment.created' || topic === 'payment.updated') {
       const paymentId = query.id || query['data.id'] || body?.data?.id;
-      
+
       if (!paymentId) return res.status(400).send('No payment ID');
 
       const { MercadoPagoConfig, Payment } = require('mercadopago');
       const client = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
       const payment = new Payment(client);
-      
+
       const paymentData = await payment.get({ id: paymentId });
-      
+
       if (paymentData && paymentData.external_reference) {
         const quotaId = paymentData.external_reference;
         const status = paymentData.status;
 
         const quota = await Quota.findByPk(quotaId);
-        
+
         if (quota) {
           await quota.update({
             mp_payment_id: paymentId.toString(),
@@ -527,11 +340,10 @@ const webhookMercadoPago = async (req, res) => {
             await quota.update({
               status: 'pagado',
               date_payment: new Date(),
-              metodo_payment: 'Mercado Payment',
+              metodo_payment: 'Mercado Pago',
               receipt: `MP-${paymentId}`
             });
-            
-            // Si el user estaba desactivado por falta de payment y ya no tiene quotas con deuda, reactivarlo
+
             if (quota.user_id) {
               const cobranza = await quotaService.obtenerEstadoCobranzaUsuario(quota.user_id);
               if (cobranza.statusCuota !== 'Con Deuda') {
@@ -548,17 +360,12 @@ const webhookMercadoPago = async (req, res) => {
 
     return res.status(200).send('OK');
   } catch (error) {
-    console.error('Error procesando Webhook de MP:', error);
-    return res.status(500).send('Error');
+    next(error);
   }
 };
 
-/**
- * Confirmación robusta de payment de Mercado Payment.
- * Soporta parámetros por body o query string (quota_id, payment_id, status, preference_id).
- * Acredita la quota, registra receipt y reactiva al member si ya no adeuda quotas en mora.
- */
-const confirmarPagoMP = async (req, res) => {
+// Confirmación de pago de Mercado Pago
+const confirmarPagoMP = async (req, res, next) => {
   try {
     const body = req.body || {};
     const query = req.query || {};
@@ -616,7 +423,6 @@ const confirmarPagoMP = async (req, res) => {
       });
     }
 
-    // Si la quota ya estaba pagada previamente, retorna éxito sin error
     if (quota.status === 'pagado') {
       let userInfo = null;
       if (quota.user_id) {
@@ -641,12 +447,11 @@ const confirmarPagoMP = async (req, res) => {
       });
     }
 
-    // Actualiza la quota a status pagado con el receipt MP
     const numComprobante = 'MP-' + (paymentId || Date.now());
     const updateData = {
       status: 'pagado',
       date_payment: new Date(),
-      metodo_payment: 'Mercado Payment',
+      metodo_payment: 'Mercado Pago',
       receipt: numComprobante,
       mp_payment_id: (paymentId || '').toString(),
       mp_status: status || 'approved'
@@ -659,8 +464,6 @@ const confirmarPagoMP = async (req, res) => {
     await quota.update(updateData);
     await quota.reload();
 
-    // Sincroniza la cobranza del user: si el user estaba pausado (status === false)
-    // y ya no tiene deudas en mora (no pagado), reactiva al user (status = true)
     let userActualizado = null;
     if (quota.user_id) {
       const cobranza = await quotaService.obtenerEstadoCobranzaUsuario(quota.user_id);
@@ -688,12 +491,7 @@ const confirmarPagoMP = async (req, res) => {
       user: userActualizado
     });
   } catch (error) {
-    console.error('Error al confirmar payment de Mercado Payment:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al confirmar el pago',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
@@ -711,4 +509,3 @@ module.exports = {
   confirmarMercadoPago: confirmarPagoMP,
   procesarExitoMP: confirmarPagoMP
 };
-

@@ -1,9 +1,11 @@
+const { Op } = require('sequelize');
 const Branch = require('../models/branch.model');
 const Teacher = require('../models/teacher.model');
 const Activity = require('../models/activity.model');
 const Shift = require('../models/shift.model');
+const Reservation = require('../models/reservation.model');
 
-// Constantes y helpers para formateo de días y schedules
+// Constantes y helpers para formateo de días y horarios
 const MAP_ABREV = {
   'Lunes': 'Lun',
   'Martes': 'Mar',
@@ -16,32 +18,29 @@ const MAP_ABREV = {
 
 const ORDEN_DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-const abreviarDia = (day) => MAP_ABREV[day] || day;
+const abreviarDia = (dia) => MAP_ABREV[dia] || dia;
 
-const sonConsecutivos = (days) => {
-  if (days.length <= 1) return true;
-  const indices = days.map(d => ORDEN_DIAS.indexOf(d));
+const sonConsecutivos = (dias) => {
+  if (dias.length <= 1) return true;
+  const indices = dias.map((d) => ORDEN_DIAS.indexOf(d));
   for (let i = 1; i < indices.length; i++) {
     if (indices[i] !== indices[i - 1] + 1) return false;
   }
   return true;
 };
 
-// Convierte "HH:MM" a minutos desde 00:00
 const timeToMinutes = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
   return (h || 0) * 60 + (m || 0);
 };
 
-// Convierte minutos a string "HH:MM"
 const minutesToTime = (minutes) => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-// Genera slots de shifts según hora de home, hora de fin e intervalo en minutos
 const generarSlotsHorarios = (horaInicio, endTime, intervaloMinutos) => {
   const slots = [];
   const startMin = timeToMinutes(horaInicio);
@@ -60,18 +59,16 @@ const generarSlotsHorarios = (horaInicio, endTime, intervaloMinutos) => {
   return slots;
 };
 
-// Construye una cadena legible a partir del arreglo de días y schedules
 const formatearHorarioApertura = (schedule_days) => {
   if (!Array.isArray(schedule_days) || schedule_days.length === 0) {
     return 'Lunes a Viernes 07:00 a 23:00 - Sábados 08:00 a 20:00';
   }
 
-  const diasAbiertos = schedule_days.filter(d => d.abierto && d.hora_home && d.hora_fin);
+  const diasAbiertos = schedule_days.filter((d) => d.abierto && d.hora_home && d.hora_fin);
   if (diasAbiertos.length === 0) return 'Cerrado temporalmente';
 
-  // Agrupar días con schedules idénticos
   const grupos = [];
-  schedule_days.forEach(d => {
+  schedule_days.forEach((d) => {
     if (!d.abierto) return;
     const horarioKey = `${d.hora_home} a ${d.hora_fin} hs`;
     const ultimoGrupo = grupos[grupos.length - 1];
@@ -82,12 +79,13 @@ const formatearHorarioApertura = (schedule_days) => {
     }
   });
 
-  const partes = grupos.map(g => {
-    const diasStr = g.days.length === 1
-      ? g.days[0]
-      : (g.days.length > 2 && sonConsecutivos(g.days)
+  const partes = grupos.map((g) => {
+    const diasStr =
+      g.days.length === 1
+        ? g.days[0]
+        : g.days.length > 2 && sonConsecutivos(g.days)
         ? `${abreviarDia(g.days[0])} a ${abreviarDia(g.days[g.days.length - 1])}`
-        : g.days.map(abreviarDia).join(', '));
+        : g.days.map(abreviarDia).join(', ');
     return `${diasStr}: ${g.horarioKey}`;
   });
 
@@ -95,7 +93,7 @@ const formatearHorarioApertura = (schedule_days) => {
 };
 
 // Obtener todas las sedes
-const obtenerSedes = async (req, res) => {
+const obtenerSedes = async (req, res, next) => {
   try {
     const { soloActivas } = req.query;
     const whereClause = soloActivas === 'true' ? { status: true } : {};
@@ -117,51 +115,24 @@ const obtenerSedes = async (req, res) => {
       branches
     });
   } catch (error) {
-    console.error('Error al obtener branches:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener el listado de sedes',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Obtener branch por ID
-const obtenerSedePorId = async (req, res) => {
-  const { id } = req.params;
+// Obtener sede por ID (provista por middleware)
+const obtenerSedePorId = async (req, res, next) => {
   try {
-    const branch = await Branch.findByPk(id, {
-      include: [
-        {
-          model: Teacher,
-          as: 'teachers'
-        }
-      ]
-    });
-
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Sede no encontrada'
-      });
-    }
-
     return res.json({
       success: true,
-      branch
+      branch: req.branch
     });
   } catch (error) {
-    console.error('Error al obtener branch:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener la sede',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Crear nueva branch
-const crearSede = async (req, res) => {
+// Crear nueva sede (validada previamente por middleware)
+const crearSede = async (req, res, next) => {
   const {
     name,
     address,
@@ -177,22 +148,7 @@ const crearSede = async (req, res) => {
     teacher_id = null
   } = req.body;
 
-  if (!name || !address) {
-    return res.status(400).json({
-      success: false,
-      message: 'El nombre y la dirección de la sede son campos requeridos'
-    });
-  }
-
-  if (phone && phone.toString().trim() !== '' && !/^\d+$/.test(phone.toString().trim())) {
-    return res.status(400).json({
-      success: false,
-      message: 'El número de teléfono de la sede solo debe contener números'
-    });
-  }
-
   try {
-    // Determinar la cadena de schedule de apertura
     let horarioFinal = opening_hours ? opening_hours.trim() : '';
     if (!horarioFinal && Array.isArray(schedule_days) && schedule_days.length > 0) {
       horarioFinal = formatearHorarioApertura(schedule_days);
@@ -215,30 +171,29 @@ const crearSede = async (req, res) => {
 
     let shiftsGeneradosCount = 0;
 
-    // Generar automáticamente la activity y shifts de Musculación si fue solicitado
+    // Generar automáticamente musculación si fue solicitado
     if (generar_shifts_musculacion) {
-      // 1. Crear activity "Musculación & Sala de Pesas" asociada a esta branch
       const actMuscle = await Activity.create({
         name: 'Musculación & Sala de Pesas',
         duration: parseInt(duration_shift_musculacion, 10) || 60,
         capacity: parseInt(capacity_musculacion, 10) || 30,
-        description: 'Training libre y guiado de fuerza, hipertrofia y musculación en sala de pesas y máquinas.',
+        description: 'Entrenamiento libre y guiado de fuerza, hipertrofia y musculación en sala de pesas y máquinas.',
         branch_id: nuevaSede.id,
         teacher_id: teacher_id ? parseInt(teacher_id, 10) : null,
         status: true
       });
 
-      // 2. Generar shifts para cada día habilitado
-      const diasAProcesar = Array.isArray(schedule_days) && schedule_days.length > 0
-        ? schedule_days
-        : [
-            { day: 'Lunes', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
-            { day: 'Martes', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
-            { day: 'Miércoles', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
-            { day: 'Jueves', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
-            { day: 'Viernes', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
-            { day: 'Sábado', abierto: true, hora_home: '08:00', hora_fin: '20:00' }
-          ];
+      const diasAProcesar =
+        Array.isArray(schedule_days) && schedule_days.length > 0
+          ? schedule_days
+          : [
+              { day: 'Lunes', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
+              { day: 'Martes', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
+              { day: 'Miércoles', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
+              { day: 'Jueves', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
+              { day: 'Viernes', abierto: true, hora_home: '07:00', hora_fin: '23:00' },
+              { day: 'Sábado', abierto: true, hora_home: '08:00', hora_fin: '20:00' }
+            ];
 
       const shiftsACrear = [];
       const durationMin = parseInt(duration_shift_musculacion, 10) || 60;
@@ -266,9 +221,10 @@ const crearSede = async (req, res) => {
       }
     }
 
-    const messageExito = shiftsGeneradosCount > 0
-      ? `Sede creada exitosamente con ${shiftsGeneradosCount} turnos de Musculación generados automáticamente.`
-      : 'Sede creada exitosamente.';
+    const messageExito =
+      shiftsGeneradosCount > 0
+        ? `Sede creada exitosamente con ${shiftsGeneradosCount} turnos de Musculación generados automáticamente.`
+        : 'Sede creada exitosamente.';
 
     return res.status(201).json({
       success: true,
@@ -277,46 +233,16 @@ const crearSede = async (req, res) => {
       shiftsGenerados: shiftsGeneradosCount
     });
   } catch (error) {
-    console.error('Error al crear branch:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al crear la sede',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Actualizar branch
-const actualizarSede = async (req, res) => {
-  const { id } = req.params;
-  const {
-    name,
-    address,
-    city,
-    phone,
-    email,
-    opening_hours,
-    schedule_days,
-    capacity,
-    status
-  } = req.body;
+// Actualizar sede (validada previamente por middleware)
+const actualizarSede = async (req, res, next) => {
+  const branch = req.branch;
+  const { name, address, city, phone, email, opening_hours, schedule_days, capacity, status } = req.body;
 
   try {
-    const branch = await Branch.findByPk(id);
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Sede no encontrada'
-      });
-    }
-
-    if (phone !== undefined && phone !== null && phone.toString().trim() !== '' && !/^\d+$/.test(phone.toString().trim())) {
-      return res.status(400).json({
-        success: false,
-        message: 'El número de teléfono de la sede solo debe contener números'
-      });
-    }
-
     let horarioFinal = opening_hours;
     if (!horarioFinal && Array.isArray(schedule_days) && schedule_days.length > 0) {
       horarioFinal = formatearHorarioApertura(schedule_days);
@@ -340,27 +266,15 @@ const actualizarSede = async (req, res) => {
       branch
     });
   } catch (error) {
-    console.error('Error al actualizar branch:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al actualizar la sede',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Baja lógica / Toggle de status de la branch
-const toggleEstadoSede = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const branch = await Branch.findByPk(id);
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Sede no encontrada'
-      });
-    }
+// Toggle de estado de la sede (validada por middleware)
+const toggleEstadoSede = async (req, res, next) => {
+  const branch = req.branch;
 
+  try {
     const nuevoEstado = !branch.status;
     await branch.update({ status: nuevoEstado });
 
@@ -370,40 +284,54 @@ const toggleEstadoSede = async (req, res) => {
       branch
     });
   } catch (error) {
-    console.error('Error al cambiar status de la branch:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al cambiar estado de la sede',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Eliminar branch permanentemente
-const eliminarSede = async (req, res) => {
-  const { id } = req.params;
+// Eliminar sede permanentemente junto a sus actividades y turnos asociados (validada por middleware)
+const eliminarSede = async (req, res, next) => {
+  const branch = req.branch;
+  const id = branch.id;
+
   try {
-    const branch = await Branch.findByPk(id);
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Sede no encontrada'
-      });
+    // 1. Obtener todas las actividades asociadas a esta sede
+    const actividadesSede = await Activity.findAll({ where: { branch_id: id } });
+    const actividadIds = actividadesSede.map((a) => a.id);
+
+    // 2. Obtener todos los turnos pertenecientes a esta sede o a sus actividades
+    const turnosSede = await Shift.findAll({
+      where: {
+        [Op.or]: [
+          { branch_id: id },
+          ...(actividadIds.length > 0 ? [{ activity_id: actividadIds }] : [])
+        ]
+      }
+    });
+    const turnoIds = turnosSede.map((t) => t.id);
+
+    // 3. Eliminar reservas asociadas
+    if (turnoIds.length > 0) {
+      await Reservation.destroy({ where: { shift_id: turnoIds } });
+      await Shift.destroy({ where: { id: turnoIds } });
     }
 
+    // 4. Eliminar las actividades exclusivas de esta sede
+    if (actividadIds.length > 0) {
+      await Activity.destroy({ where: { id: actividadIds } });
+    }
+
+    // 5. Desvincular profesores para que queden disponibles
+    await Teacher.update({ branch_id: null }, { where: { branch_id: id } });
+
+    // 6. Eliminar la sede
     await branch.destroy();
 
     return res.json({
       success: true,
-      message: 'Sede eliminada exitosamente'
+      message: 'Sede eliminada exitosamente junto con sus actividades y turnos asociados'
     });
   } catch (error) {
-    console.error('Error al eliminar branch:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al eliminar sede',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 

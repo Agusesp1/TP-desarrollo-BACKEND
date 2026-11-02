@@ -2,9 +2,10 @@ const Activity = require('../models/activity.model');
 const Shift = require('../models/shift.model');
 const Teacher = require('../models/teacher.model');
 const Branch = require('../models/branch.model');
+const Reservation = require('../models/reservation.model');
 
-// Obtener todas las activities
-const obtenerActividades = async (req, res) => {
+// Obtener todas las actividades
+const obtenerActividades = async (req, res, next) => {
   try {
     const { soloActivas, branch_id } = req.query;
     const whereClause = {};
@@ -41,92 +42,29 @@ const obtenerActividades = async (req, res) => {
       activities
     });
   } catch (error) {
-    console.error('Error al obtener activities:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener actividades',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Obtener activity por ID
-const obtenerActividadPorId = async (req, res) => {
-  const { id } = req.params;
+// Obtener actividad por ID (validada y provista por middleware)
+const obtenerActividadPorId = async (req, res, next) => {
   try {
-    const activity = await Activity.findByPk(id, {
-      include: [
-        {
-          model: Branch,
-          as: 'branch'
-        },
-        {
-          model: Teacher,
-          as: 'teacher'
-        },
-        {
-          model: Shift,
-          as: 'shifts',
-          include: [
-            { model: Teacher, as: 'teacher' },
-            { model: Branch, as: 'branch' }
-          ]
-        }
-      ]
-    });
-
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: 'Actividad no encontrada'
-      });
-    }
-
     return res.json({
       success: true,
-      activity
+      activity: req.activity
     });
   } catch (error) {
-    console.error('Error al obtener activity:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener la actividad',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Crear nueva activity
-const crearActividad = async (req, res) => {
-  const { name, duration, capacity, description, branch_id, teacher_id, dayOfWeek, startTime, endTime } = req.body;
-
-  if (!name || !duration || !capacity || !dayOfWeek || !startTime || !endTime) {
-    return res.status(400).json({
-      success: false,
-      message: 'El nombre, la duración, la capacidad, los días de dictado y el horario son campos obligatorios'
-    });
-  }
+// Crear nueva actividad (datos y reglas de negocio validados previamente por middleware)
+const crearActividad = async (req, res, next) => {
+  const { name, duration, capacity, description, dayOfWeek, startTime, endTime } = req.body;
+  const targetSedeId = req.targetSedeId;
+  const targetProfesorId = req.targetProfesorId;
 
   try {
-    const targetSedeId = branch_id ? parseInt(branch_id, 10) : null;
-    const targetProfesorId = teacher_id ? parseInt(teacher_id, 10) : null;
-
-    if (targetProfesorId && targetSedeId) {
-      const teacher = await Teacher.findByPk(targetProfesorId);
-      if (teacher && teacher.branch_id && parseInt(teacher.branch_id, 10) !== targetSedeId) {
-        const [branchProf, branchAct] = await Promise.all([
-          Branch.findByPk(teacher.branch_id),
-          Branch.findByPk(targetSedeId)
-        ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
-        const nomSedeAct = branchAct ? branchAct.name : `Sede #${targetSedeId}`;
-        return res.status(400).json({
-          success: false,
-          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar actividades en ${nomSedeAct}`
-        });
-      }
-    }
-
     const nuevaActividad = await Activity.create({
       name: name.trim(),
       duration: parseInt(duration, 10),
@@ -137,7 +75,7 @@ const crearActividad = async (req, res) => {
       status: true
     });
 
-    // Crear el shift u schedule de dictado asociado a la activity
+    // Crear el turno asociado a la actividad
     await Shift.create({
       activity_id: nuevaActividad.id,
       startTime: startTime.trim(),
@@ -173,51 +111,18 @@ const crearActividad = async (req, res) => {
       activity: activityCompleta
     });
   } catch (error) {
-    console.error('Error al crear activity:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al crear la actividad',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Actualizar activity
-const actualizarActividad = async (req, res) => {
-  const { id } = req.params;
-  const { name, duration, capacity, description, status, branch_id, teacher_id, dayOfWeek, startTime, endTime } = req.body;
+// Actualizar actividad (validada previamente por middleware)
+const actualizarActividad = async (req, res, next) => {
+  const { name, duration, capacity, description, status, dayOfWeek, startTime, endTime } = req.body;
+  const activity = req.activity;
+  const parsedSedeId = req.parsedSedeId;
+  const parsedProfesorId = req.parsedProfesorId;
 
   try {
-    const activity = await Activity.findByPk(id, {
-      include: [{ model: Shift, as: 'shifts' }]
-    });
-
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: 'Actividad no encontrada'
-      });
-    }
-
-    const parsedSedeId = branch_id !== undefined ? (branch_id ? parseInt(branch_id, 10) : null) : activity.branch_id;
-    const parsedProfesorId = teacher_id !== undefined ? (teacher_id ? parseInt(teacher_id, 10) : null) : activity.teacher_id;
-
-    if (parsedProfesorId && parsedSedeId) {
-      const teacher = await Teacher.findByPk(parsedProfesorId);
-      if (teacher && teacher.branch_id && parseInt(teacher.branch_id, 10) !== parsedSedeId) {
-        const [branchProf, branchAct] = await Promise.all([
-          Branch.findByPk(teacher.branch_id),
-          Branch.findByPk(parsedSedeId)
-        ]);
-        const nomSedeProf = branchProf ? branchProf.name : `Sede #${teacher.branch_id}`;
-        const nomSedeAct = branchAct ? branchAct.name : `Sede #${parsedSedeId}`;
-        return res.status(400).json({
-          success: false,
-          message: `El profesor ${teacher.name} ${teacher.lastname} está asignado a ${nomSedeProf} y no puede dictar actividades en ${nomSedeAct}`
-        });
-      }
-    }
-
     await activity.update({
       name: name !== undefined ? name.trim() : activity.name,
       duration: duration !== undefined ? parseInt(duration, 10) : activity.duration,
@@ -228,8 +133,8 @@ const actualizarActividad = async (req, res) => {
       teacher_id: parsedProfesorId
     });
 
-    // Actualizar o crear shift si se especificaron días u schedules
-    if (dayOfWeek !== undefined || startTime !== undefined || endTime !== undefined || branch_id !== undefined || teacher_id !== undefined) {
+    // Actualizar o crear turno si se especificaron días u horarios
+    if (dayOfWeek !== undefined || startTime !== undefined || endTime !== undefined || parsedSedeId !== undefined || parsedProfesorId !== undefined) {
       if (activity.shifts && activity.shifts.length > 0) {
         for (const t of activity.shifts) {
           await t.update({
@@ -278,27 +183,15 @@ const actualizarActividad = async (req, res) => {
       activity: activityActualizada
     });
   } catch (error) {
-    console.error('Error al actualizar actividad:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al actualizar la actividad',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Toggle status de la activity
-const toggleEstadoActividad = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const activity = await Activity.findByPk(id);
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: 'Actividad no encontrada'
-      });
-    }
+// Toggle de estado de la actividad (validado por middleware)
+const toggleEstadoActividad = async (req, res, next) => {
+  const activity = req.activity;
 
+  try {
     const nuevoEstado = !activity.status;
     await activity.update({ status: nuevoEstado });
 
@@ -308,25 +201,21 @@ const toggleEstadoActividad = async (req, res) => {
       activity
     });
   } catch (error) {
-    console.error('Error al cambiar status de la actividad:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al cambiar estado de la actividad',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Eliminar activity
-const eliminarActividad = async (req, res) => {
-  const { id } = req.params;
+// Eliminar actividad (validada por middleware)
+const eliminarActividad = async (req, res, next) => {
+  const activity = req.activity;
+
   try {
-    const activity = await Activity.findByPk(id);
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: 'Actividad no encontrada'
-      });
+    // Eliminar turnos y reservas asociadas antes de eliminar la actividad
+    const turnos = await Shift.findAll({ where: { activity_id: activity.id } });
+    const turnoIds = turnos.map((t) => t.id);
+    if (turnoIds.length > 0) {
+      await Reservation.destroy({ where: { shift_id: turnoIds } });
+      await Shift.destroy({ where: { id: turnoIds } });
     }
 
     await activity.destroy();
@@ -336,12 +225,7 @@ const eliminarActividad = async (req, res) => {
       message: 'Actividad eliminada exitosamente'
     });
   } catch (error) {
-    console.error('Error al eliminar actividad:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al eliminar actividad',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 

@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS shifts (
   status BOOLEAN DEFAULT true,
   FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
   FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL,
-  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
 );
 
 -- 8. Insertar administrador predeterminado si no existe (contraseña encriptada con bcrypt: 'adminfit')

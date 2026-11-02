@@ -4,21 +4,15 @@ const User = require('../models/user.model');
 const Shift = require('../models/shift.model');
 const Activity = require('../models/activity.model');
 
-// Obtener todos los teachers
-const obtenerProfesores = async (req, res) => {
+// Obtener todos los profesores
+const obtenerProfesores = async (req, res, next) => {
   try {
     const { branch_id, specialty, soloActivos } = req.query;
     const whereClause = {};
 
-    if (branch_id) {
-      whereClause.branch_id = branch_id;
-    }
-    if (specialty) {
-      whereClause.specialty = specialty;
-    }
-    if (soloActivos === 'true') {
-      whereClause.status = true;
-    }
+    if (branch_id) whereClause.branch_id = branch_id;
+    if (specialty) whereClause.specialty = specialty;
+    if (soloActivos === 'true') whereClause.status = true;
 
     const teachers = await Teacher.findAll({
       where: whereClause,
@@ -37,86 +31,34 @@ const obtenerProfesores = async (req, res) => {
       teachers
     });
   } catch (error) {
-    console.error('Error al obtener teachers:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener el listado de profesores',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Obtener teacher por ID
-const obtenerProfesorPorId = async (req, res) => {
-  const { id } = req.params;
+// Obtener profesor por ID (validado y provisto por middleware)
+const obtenerProfesorPorId = async (req, res, next) => {
   try {
-    const teacher = await Teacher.findByPk(id, {
-      include: [
-        {
-          model: Branch,
-          as: 'branch'
-        }
-      ]
-    });
-
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profesor no encontrado'
-      });
-    }
-
     return res.json({
       success: true,
-      teacher
+      teacher: req.teacher
     });
   } catch (error) {
-    console.error('Error al obtener teacher:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener el profesor',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Crear nuevo teacher
-const crearProfesor = async (req, res) => {
-  const { name, lastname, dni, email, phone, specialty, shift, branch_id } = req.body;
-
-  // Validaciones básicas
-  if (!name || !lastname || !dni || !email) {
-    return res.status(400).json({
-      success: false,
-      message: 'Nombre, apellido, DNI y correo electrónico son obligatorios'
-    });
-  }
+// Crear nuevo profesor (validado previamente por middleware)
+const crearProfesor = async (req, res, next) => {
+  const { name, lastname, phone, specialty, shift, branch_id } = req.body;
+  const email = req.emailNormalizado;
+  const dni = req.dniNormalizado;
 
   try {
-    // 1. Verificar si ya existe el email
-    const emailExistente = await Teacher.findOne({ where: { email } });
-    if (emailExistente) {
-      return res.status(409).json({
-        success: false,
-        message: 'El correo electrónico ya pertenece a otro profesor'
-      });
-    }
-
-    // 2. Verificar si ya existe el DNI
-    const dniExistente = await Teacher.findOne({ where: { dni } });
-    if (dniExistente) {
-      return res.status(409).json({
-        success: false,
-        message: 'El DNI ya se encuentra registrado'
-      });
-    }
-
-    // 3. Crear el teacher
     const nuevoProfesor = await Teacher.create({
       name: name.trim(),
       lastname: lastname.trim(),
-      dni: dni.toString().trim(),
-      email: email.trim().toLowerCase(),
+      dni,
+      email,
       phone: phone ? phone.toString().trim() : null,
       specialty: specialty ? specialty.trim() : 'Musculación',
       shift: shift || 'Mañana',
@@ -124,19 +66,19 @@ const crearProfesor = async (req, res) => {
       status: true
     });
 
-    // 4. Crear o sincronizar su cuenta de User para que pueda ingresar
-    const passwordUsuario = req.body.password || dni.toString().trim();
-    const userExistente = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+    // Sincronizar cuenta de usuario para que pueda acceder
+    const passwordUsuario = req.body.password || dni;
+    const userExistente = await User.findOne({ where: { email } });
     if (!userExistente) {
       await User.create({
         name: name.trim(),
         lastname: lastname.trim(),
-        dni: dni.toString().trim(),
+        dni,
         birth_date: req.body.birth_date || '1990-01-01',
-        email: email.trim().toLowerCase(),
+        email,
         password: passwordUsuario,
         role: 'teacher',
-        bio: `Teacher oficial de FitApp. Specialty: ${specialty || 'Musculación'}. Shift: ${shift || 'Mañana'}.`,
+        bio: `Profesor oficial de FitApp. Especialidad: ${specialty || 'Musculación'}. Turno: ${shift || 'Mañana'}.`,
         status: true
       });
     } else {
@@ -144,12 +86,11 @@ const crearProfesor = async (req, res) => {
         role: 'teacher',
         name: name.trim(),
         lastname: lastname.trim(),
-        dni: dni.toString().trim(),
+        dni,
         status: true
       });
     }
 
-    // Cargar con relación de Branch si existe
     const teacherConSede = await Teacher.findByPk(nuevoProfesor.id, {
       include: [{ model: Branch, as: 'branch' }]
     });
@@ -160,53 +101,17 @@ const crearProfesor = async (req, res) => {
       teacher: teacherConSede || nuevoProfesor
     });
   } catch (error) {
-    console.error('Error al crear teacher:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al crear el profesor',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Actualizar teacher
-const actualizarProfesor = async (req, res) => {
-  const { id } = req.params;
+// Actualizar profesor (validado previamente por middleware)
+const actualizarProfesor = async (req, res, next) => {
+  const teacher = req.teacher;
   const { name, lastname, dni, email, phone, specialty, shift, branch_id, status } = req.body;
+  const emailAnterior = teacher.email;
 
   try {
-    const teacher = await Teacher.findByPk(id);
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profesor no encontrado'
-      });
-    }
-
-    // Verificar email duplicado si cambió
-    if (email && email.trim().toLowerCase() !== teacher.email) {
-      const emailExistente = await Teacher.findOne({ where: { email: email.trim().toLowerCase() } });
-      if (emailExistente) {
-        return res.status(409).json({
-          success: false,
-          message: 'El correo electrónico ya pertenece a otro profesor'
-        });
-      }
-    }
-
-    // Verificar DNI duplicado si cambió
-    if (dni && dni.toString().trim() !== teacher.dni) {
-      const dniExistente = await Teacher.findOne({ where: { dni: dni.toString().trim() } });
-      if (dniExistente) {
-        return res.status(409).json({
-          success: false,
-          message: 'El DNI ya se encuentra registrado'
-        });
-      }
-    }
-
-    const emailAnterior = teacher.email;
-
     await teacher.update({
       name: name !== undefined ? name.trim() : teacher.name,
       lastname: lastname !== undefined ? lastname.trim() : teacher.lastname,
@@ -219,7 +124,7 @@ const actualizarProfesor = async (req, res) => {
       status: status !== undefined ? status : teacher.status
     });
 
-    // Sincronizar cuenta de user si existe
+    // Sincronizar cuenta de usuario si existe
     const userAsociado = await User.findOne({ where: { email: emailAnterior } });
     if (userAsociado) {
       await userAsociado.update({
@@ -231,7 +136,7 @@ const actualizarProfesor = async (req, res) => {
       });
     }
 
-    const teacherActualizado = await Teacher.findByPk(id, {
+    const teacherActualizado = await Teacher.findByPk(teacher.id, {
       include: [{ model: Branch, as: 'branch' }]
     });
 
@@ -241,31 +146,18 @@ const actualizarProfesor = async (req, res) => {
       teacher: teacherActualizado
     });
   } catch (error) {
-    console.error('Error al actualizar teacher:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al actualizar el profesor',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Toggle de status del teacher
-const toggleEstadoProfesor = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const teacher = await Teacher.findByPk(id);
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profesor no encontrado'
-      });
-    }
+// Toggle de estado del profesor (validado por middleware)
+const toggleEstadoProfesor = async (req, res, next) => {
+  const teacher = req.teacher;
 
+  try {
     const nuevoEstado = !teacher.status;
     await teacher.update({ status: nuevoEstado });
 
-    // Sincronizar status en cuenta de user
     const userAsociado = await User.findOne({ where: { email: teacher.email } });
     if (userAsociado) {
       await userAsociado.update({ status: nuevoEstado });
@@ -277,31 +169,19 @@ const toggleEstadoProfesor = async (req, res) => {
       teacher
     });
   } catch (error) {
-    console.error('Error al cambiar status del teacher:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al cambiar estado del profesor',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Eliminar teacher permanentemente
-const eliminarProfesor = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const teacher = await Teacher.findByPk(id);
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profesor no encontrado'
-      });
-    }
+// Eliminar profesor permanentemente (validado por middleware)
+const eliminarProfesor = async (req, res, next) => {
+  const teacher = req.teacher;
+  const emailProfesor = teacher.email;
 
-    const emailProfesor = teacher.email;
+  try {
     await teacher.destroy();
 
-    // Eliminar también su cuenta de user para revocar acceso
+    // Eliminar también su cuenta de usuario para revocar acceso
     const userAsociado = await User.findOne({ where: { email: emailProfesor } });
     if (userAsociado) {
       await userAsociado.destroy();
@@ -312,34 +192,15 @@ const eliminarProfesor = async (req, res) => {
       message: 'Profesor y cuenta de usuario eliminados exitosamente'
     });
   } catch (error) {
-    console.error('Error al eliminar teacher:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error al eliminar profesor',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Obtener agenda, branches, activities y schedules de un teacher (por su email)
-const obtenerAgendaProfesor = async (req, res) => {
-  const { email } = req.params;
+// Obtener agenda del profesor (validado y provisto por middleware)
+const obtenerAgendaProfesor = async (req, res, next) => {
+  const teacher = req.teacher;
 
   try {
-    const emailNormalizado = email ? email.trim().toLowerCase() : '';
-    const teacher = await Teacher.findOne({
-      where: { email: emailNormalizado },
-      include: [{ model: Branch, as: 'branch' }]
-    });
-
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        message: 'Perfil de profesor no encontrado para este usuario'
-      });
-    }
-
-    // Obtener todos los shifts asignados al teacher
     const shifts = await Shift.findAll({
       where: { teacher_id: teacher.id, status: true },
       include: [
@@ -349,7 +210,6 @@ const obtenerAgendaProfesor = async (req, res) => {
       order: [['dayOfWeek', 'ASC'], ['startTime', 'ASC']]
     });
 
-    // Mapear branches únicas donde enseña
     const branchesMap = new Map();
     if (teacher.branch) {
       branchesMap.set(teacher.branch.id, teacher.branch);
@@ -359,10 +219,7 @@ const obtenerAgendaProfesor = async (req, res) => {
     });
     const branches = Array.from(branchesMap.values());
 
-    // Mapear activities únicas que tiene a cargo (directamente asignadas o mediante shifts)
     const activitiesMap = new Map();
-
-    // Activities asignadas directamente al teacher
     const activitiesDirectas = await Activity.findAll({
       where: { teacher_id: teacher.id, status: true },
       include: [{ model: Branch, as: 'branch' }]
@@ -385,12 +242,7 @@ const obtenerAgendaProfesor = async (req, res) => {
       activities
     });
   } catch (error) {
-    console.error('Error al obtener agenda del teacher:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al obtener la agenda del profesor',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 

@@ -1,10 +1,9 @@
 const emailService = require('../services/email.service');
 
 // Controller para enviar un correo de prueba o personalizado
-const enviarCorreo = async (req, res) => {
+const enviarCorreo = async (req, res, next) => {
   const { to, subject, html } = req.body;
 
-  // Destinatario por defecto si no se especifica
   const destinatario = to || process.env.ADMIN_EMAIL || 'administraciongymfit@gmail.com';
   const asunto = subject || 'Hola Mundo desde GymFit API';
   const contenidoHtml = html || '<p>¡Felicitaciones por enviar tu <strong>primer correo</strong>!</p>';
@@ -30,25 +29,13 @@ const enviarCorreo = async (req, res) => {
       respuesta: resultado.data
     });
   } catch (error) {
-    console.error('Error en controller de email:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al procesar el envío de correo',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
-// Controller para recibir mensajes del Formulario de Contacto
-const enviarContacto = async (req, res) => {
+// Controller para recibir mensajes del Formulario de Contacto (validado por middleware)
+const enviarContacto = async (req, res, next) => {
   const { name, email, asunto, message } = req.body;
-
-  if (!name || !email || !message) {
-    return res.status(400).json({
-      success: false,
-      message: 'Nombre, correo y mensaje son requeridos.'
-    });
-  }
 
   try {
     const resultado = await emailService.enviarMailContacto({
@@ -72,12 +59,7 @@ const enviarContacto = async (req, res) => {
       respuesta: resultado.data
     });
   } catch (error) {
-    console.error('Error al procesar mensaje de contacto:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno al procesar la consulta de contacto',
-      detalles: error.message
-    });
+    next(error);
   }
 };
 
@@ -85,4 +67,3 @@ module.exports = {
   enviarCorreo,
   enviarContacto
 };
-
